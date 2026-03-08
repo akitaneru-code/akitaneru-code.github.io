@@ -1,6 +1,6 @@
 ---
 title: 일본어
-parent: 역사
+parent: 언어
 nav_order: 1
 ---
 
