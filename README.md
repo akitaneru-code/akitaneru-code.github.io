@@ -1,1 +1,0 @@
-# akitaneru-code.github.io
