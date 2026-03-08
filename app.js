@@ -19,3 +19,15 @@ function login(email,password){
  signInWithEmailAndPassword(auth,email,password)
 }
 </script>
+
+import { getFirestore, collection, addDoc } 
+from "https://www.gstatic.com/firebasejs/10.7.0/firebase-firestore.js";
+
+const db = getFirestore(app);
+
+async function createPage(title,content){
+ await addDoc(collection(db,"pages"),{
+   title:title,
+   content:content
+ });
+}
