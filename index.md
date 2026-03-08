@@ -1,8 +1,12 @@
-# 대문
+---
+title: 메인
+layout: home
+---
 
+# 대문
 이곳은 내 위키입니다.
 
-## 문서 목록
+## 문서
 
-- [역사](history)
-- [언어](language)
+- [역사](docs/history)
+- [언어](docs/language)
