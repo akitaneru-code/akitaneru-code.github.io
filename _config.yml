@@ -1,3 +1,8 @@
 title: 우리누리
-description: personal wiki
+description: 개인 위키
 theme: just-the-docs
+
+url: https://ourworld459.kro.kr
+baseurl: ""
+
+search_enabled: true
