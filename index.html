@@ -5,10 +5,97 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>우리누리</title>
   <link rel="stylesheet" href="//cdn.jsdelivr.net/npm/docsify/themes/vue.css">
+  <link rel="stylesheet" href="styles.css">
 </head>
 <body>
-  <div id="app">로딩중...</div>
-<script src="//cdn.jsdelivr.net/npm/docsify/lib/plugins/search.min.js"></script>
+  <!-- Auth Screen -->
+  <div id="auth-screen" class="screen">
+    <div class="auth-container">
+      <h1>우리누리</h1>
+      <p class="subtitle">개인 위키</p>
+      
+      <div class="auth-tabs">
+        <button id="login-tab" class="tab-button active">로그인</button>
+        <button id="signup-tab" class="tab-button">회원가입</button>
+      </div>
+
+      <!-- Login Form -->
+      <form id="login-form" class="auth-form active">
+        <div class="form-group">
+          <label for="login-email">이메일</label>
+          <input type="email" id="login-email" required>
+        </div>
+        <div class="form-group">
+          <label for="login-password">비밀번호</label>
+          <input type="password" id="login-password" required>
+        </div>
+        <button type="submit" class="btn btn-primary">로그인</button>
+        <div id="login-error" class="error-message"></div>
+      </form>
+
+      <!-- Signup Form -->
+      <form id="signup-form" class="auth-form">
+        <div class="form-group">
+          <label for="signup-email">이메일</label>
+          <input type="email" id="signup-email" required>
+        </div>
+        <div class="form-group">
+          <label for="signup-password">비밀번호</label>
+          <input type="password" id="signup-password" required>
+        </div>
+        <div class="form-group">
+          <label for="signup-password-confirm">비밀번호 확인</label>
+          <input type="password" id="signup-password-confirm" required>
+        </div>
+        <button type="submit" class="btn btn-primary">회원가입</button>
+        <div id="signup-error" class="error-message"></div>
+      </form>
+    </div>
+  </div>
+
+  <!-- App Screen (Wiki + Page Manager) -->
+  <div id="app-screen" class="screen">
+    <div class="top-bar">
+      <h1>우리누리</h1>
+      <div class="user-menu">
+        <span id="user-email"></span>
+        <button id="logout-btn" class="btn btn-secondary">로그아웃</button>
+      </div>
+    </div>
+
+    <div class="app-container">
+      <!-- Sidebar with page list and create form -->
+      <aside class="sidebar">
+        <div class="page-section">
+          <h3>내 문서</h3>
+          <div id="pages-list" class="pages-list"></div>
+        </div>
+        
+        <div class="create-page-section">
+          <h3>새 문서</h3>
+          <form id="create-page-form">
+            <div class="form-group">
+              <label for="page-title">제목</label>
+              <input type="text" id="page-title" placeholder="문서 제목" required>
+            </div>
+            <div class="form-group">
+              <label for="page-content">내용</label>
+              <textarea id="page-content" placeholder="마크다운 형식으로 작성" rows="8"></textarea>
+            </div>
+            <button type="submit" class="btn btn-primary">저장</button>
+            <div id="create-error" class="error-message"></div>
+          </form>
+        </div>
+      </aside>
+
+      <!-- Main wiki area -->
+      <main class="main-content">
+        <div id="app">로딩중...</div>
+      </main>
+    </div>
+  </div>
+
+  <script src="//cdn.jsdelivr.net/npm/docsify/lib/plugins/search.min.js"></script>
   <script>
     window.$docsify = {
       name: '우리누리',
@@ -17,39 +104,7 @@
       search: 'auto'
     }
   </script>
-  <script type="module">
-import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.0/firebase-app.js";
-import { getAuth, createUserWithEmailAndPassword, signInWithEmailAndPassword } 
-from "https://www.gstatic.com/firebasejs/10.7.0/firebase-auth.js";
-
-const firebaseConfig = {
-  apiKey: "APIKEY",
-  authDomain: "PROJECT.firebaseapp.com",
-};
-
-const app = initializeApp(firebaseConfig);
-const auth = getAuth(app);
-
-function signup(email,password){
- createUserWithEmailAndPassword(auth,email,password)
-}
-
-function login(email,password){
- signInWithEmailAndPassword(auth,email,password)
-}
-
-import { getFirestore, collection, addDoc } 
-from "https://www.gstatic.com/firebasejs/10.7.0/firebase-firestore.js";
-
-const db = getFirestore(app);
-
-async function createPage(title,content){
- await addDoc(collection(db,"pages"),{
-   title:title,
-   content:content
- });
-}
-  </script>
+  <script type="module" src="app.js"></script>
   <script src="//cdn.jsdelivr.net/npm/docsify/lib/docsify.min.js"></script>
 </body>
 </html>
