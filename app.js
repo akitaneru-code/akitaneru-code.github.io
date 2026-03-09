@@ -9,6 +9,7 @@ import {
   onAuthChange, 
   getCurrentUser 
 } from './auth.js';
+import { parseNamuMark, NAMU_MARK_GUIDE } from './namu-mark.js';
 
 // Initialize Firebase
 initializeFirebase();
@@ -185,13 +186,14 @@ async function loadUserPages() {
 // Display page content
 function displayPage(page) {
   const appDiv = document.getElementById('app');
+  const renderedContent = parseNamuMark(page.content);
   appDiv.innerHTML = `
     <h2>${escapeHtml(page.title)}</h2>
     <div style="color: #999; font-size: 12px; margin-bottom: 20px;">
       작성일: ${new Date(page.createdAt).toLocaleDateString('ko-KR')}
     </div>
-    <div style="line-height: 1.6; white-space: pre-wrap; word-wrap: break-word;">
-      ${escapeHtml(page.content)}
+    <div style="line-height: 1.6;">
+      ${renderedContent}
     </div>
   `;
 }
@@ -244,6 +246,27 @@ function escapeHtml(text) {
   };
   return text.replace(/[&<>"']/g, m => map[m]);
 }
+
+// Show Namu Mark guide
+function showNamuMarkGuide() {
+  const appDiv = document.getElementById('app');
+  const guide = parseNamuMark(NAMU_MARK_GUIDE);
+  appDiv.innerHTML = `
+    <div style="background: #f9f9f9; padding: 20px; border-radius: 4px; border-left: 4px solid #667eea;">
+      ${guide}
+    </div>
+  `;
+}
+
+// Add guide button to page list
+const guideBtn = document.createElement('button');
+guideBtn.textContent = '나무마크 문법';
+guideBtn.className = 'btn btn-secondary';
+guideBtn.style.width = '100%';
+guideBtn.style.marginBottom = '12px';
+guideBtn.addEventListener('click', showNamuMarkGuide);
+const pagesSection = document.querySelector('.page-section');
+pagesSection.insertBefore(guideBtn, pagesSection.querySelector('.pages-list'));
 
 // Monitor auth state
 onAuthChange((user) => {

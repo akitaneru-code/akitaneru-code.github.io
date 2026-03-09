@@ -103,9 +103,28 @@ The app includes a localStorage fallback for testing:
 - Perfect for development without Firebase setup
 - Switch to real Firebase when config is added
 
+## Namu Mark (나무마크) Support
+
+The wiki uses **Namu Mark** syntax (Korean wiki markup) for document formatting:
+
+### Syntax Examples
+- `== Heading ==` - Large heading
+- `=== Heading 3 ===` - Smaller heading  
+- `'''bold text'''` - Bold
+- `''italic text''` - Italic
+- `~~strikethrough~~` - Strikethrough
+- `__underline__` - Underline
+- `[link|description]` - Link
+- `* item` - Bullet list (use `**` for nesting)
+- `1. item` - Numbered list
+- `{{{ code }}}` - Code block
+- `----` - Horizontal line
+
+A "나무마크 문법" button in the sidebar shows the complete syntax guide.
+
 ## Notes
 
 - Passwords must be at least 6 characters
 - All user data is isolated per user (uid-based)
-- Markdown is displayed as plain text (can be enhanced with markdown renderer)
+- Documents support Namu Mark formatting
 - Timestamps are stored for document creation/updates
