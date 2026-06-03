@@ -36,7 +36,7 @@
     }
     textarea {
         width: 100%;
-        height: 75vh;
+        height: 60vh;
         padding: 20px;
         font-family: 'Consolas', monospace;
         font-size: 1.05rem;
@@ -90,38 +90,53 @@
 <script>
 // 나무마크 렌더러 (주요 문법 지원)
 function namumarkToHTML(text) {
-    let html = text;
+    let html = text || '';
 
     // 제목
-    html = html.replace(/^====== (.*?) ======$/gm, '<h1>$1</h1>');
-    html = html.replace(/^===== (.*?) =====$/gm, '<h2>$1</h2>');
-    html = html.replace(/^==== (.*?) ====$/gm, '<h3>$1</h3>');
-    html = html.replace(/^=== (.*?) ===$/gm, '<h4>$1</h4>');
-    html = html.replace(/^== (.*?) ==$/gm, '<h5>$1</h5>');
-    html = html.replace(/^= (.*?) =$/gm, '<h6>$1</h6>');
+    html = html.replace(/^======\s*(.*?)\s*======$/gm, '<h1>$1</h1>');
+    html = html.replace(/^=====\s*(.*?)\s*=====$/gm, '<h2>$1</h2>');
+    html = html.replace(/^====\s*(.*?)\s*====$/gm, '<h3>$1</h3>');
+    html = html.replace(/^===\s*(.*?)\s*===$/gm, '<h4>$1</h4>');
+    html = html.replace(/^==\s*(.*?)\s*==$/gm, '<h5>$1</h5>');
+    html = html.replace(/^=\s*(.*?)\s*=$/gm, '<h6>$1</h6>');
 
-    // 굵게, 기울임
+    // 굵게, 기울임 (나무마크 스타일)
     html = html.replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>');
     html = html.replace(/''(.+?)''/g, '<em>$1</em>');
 
     // 내부링크
-    html = html.replace(/\[\[(.+?)\]\]/g, '<a href="#" onclick="loadPage(\'$1\')">$1</a>');
+    html = html.replace(/\[\[(.+?)\]\]/g, function(_, p1){
+        return '<a href="#" onclick="loadPage(\''+p1.replace(/'/g, "\\'")+ '\')">'+p1+'</a>';
+    });
 
     // 외부링크
-    html = html.replace(/\[(https?:\/\/.+?) (.+?)\]/g, '<a href="$1" target="_blank">$2</a>');
+    html = html.replace(/\[(https?:\/\/.+?)\s+(.+?)\]/g, '<a href="$1" target="_blank" rel="noopener noreferrer">$2</a>');
 
     // 이미지 (기본 지원)
     html = html.replace(/\[파일:(.+?)\]/g, '<img src="$1" style="max-width:100%; border-radius:8px;">');
 
-    // 테이블
-    html = html.replace(/^\|\|(.+?)\|\|$/gm, (match) => {
-        const cells = match.slice(2, -2).split('||').map(cell => `<td>${cell.trim()}</td>`).join('');
-        return `<tr>${cells}</tr>`;
+    // 테이블 행 (각 줄을 <tr>)
+    html = html.replace(/^\|\|(.+?)\|\|$/gm, function(match){
+        const cells = match.slice(2, -2).split('||').map(cell => '<td>'+cell.trim()+'</td>').join('');
+        return '<tr>'+cells+'</tr>';
+    });
+    // 감싸는 테이블 태그는 사용자가 추가할 수 있지만, 간단히 여러 tr을 테이블로 감싼다.
+    html = html.replace(/(<tr>[\s\S]*?<\/tr>)/gm, function(m){
+        // If there's already a table tag, don't double-wrap
+        if (/^\s*<table[\s\S]*?>/m.test(html)) return m;
+        return '<table>'+m+'</table>';
     });
 
     // 리스트
-    html = html.replace(/^\* (.+)$/gm, '<li>$1</li>');
-    html = html.replace(/(<li>.+<\/li>)/gs, '<ul>$1</ul>');
+    html = html.replace(/^\*\s+(.+)$/gm, '<li>$1</li>');
+    // 연속된 <li> 그룹을 <ul>로 감싸기
+    html = html.replace(/(<li>[\s\S]*?<\/li>)(?:\s*<li>[\s\S]*?<\/li>)*/gm, function(group){
+        if (/^\s*<ul>/.test(group)) return group; // 이미 감싸진 경우
+        // group may contain multiple <li> entries concatenated; ensure we wrap the whole sequence
+        const lis = group.match(/<li>[\s\S]*?<\/li>/g);
+        if (!lis) return group;
+        return '<ul>'+lis.join('')+'</ul>';
+    });
 
     // 줄바꿈
     html = html.replace(/\n/g, '<br>');
@@ -129,9 +144,9 @@ function namumarkToHTML(text) {
     return html;
 }
 
-// 데이터 저장소
+// 데이터 저장소 (초기 샘플 포함)
 let pages = {
-    "환영합니다": `= 환영합니다 =\n\n이 위키는 '''나무마크'''를 지원합니다.\n\n[[슈티어]] 문서를 만들어 보세요.\n\n== 사용 예시 ==\n* [[링크]]\n* '''굵게'''\n* ''기울임''`
+    "환영합니다": `= 환영합니다 =\n\n이 위키는 '''나무마크'''를 지원합니다.\n\n[[예시]] 페이지를 만들어 보세요.\n\n== 사용 예시 ==\n* [[링크]]\n* '''굵게'''\n* ''기울임''\n\n[파일:https://via.placeholder.com/600x120]`
 };
 
 // 현재 페이지
@@ -145,7 +160,7 @@ function renderPageList() {
         a.href = '#';
         a.textContent = title;
         a.className = title === currentPage ? 'active' : '';
-        a.onclick = () => loadPage(title);
+        a.onclick = (e) => { e.preventDefault(); loadPage(title); };
         list.appendChild(a);
     });
 }
@@ -194,6 +209,7 @@ function newPage() {
     if (title && !pages[title]) {
         pages[title] = `= ${title} =\n\n내용을 작성해주세요.`;
         loadPage(title);
+        localStorage.setItem('namumarkWiki', JSON.stringify(pages));
     }
 }
 
@@ -204,176 +220,16 @@ function searchPages() {
     });
 }
 
-// 초기화
+// 초기화: 로컬스토리지에서 불러오기
 if (localStorage.getItem('namumarkWiki')) {
-    pages = JSON.parse(localStorage.getItem('namumarkWiki'));
+    try {
+        const stored = JSON.parse(localStorage.getItem('namumarkWiki'));
+        if (stored && typeof stored === 'object') pages = stored;
+    } catch(e) { console.warn('Invalid namumarkWiki in localStorage, ignoring.'); }
 }
 
 renderPageList();
 loadPage(currentPage);
 </script>
-</body>
-</html>    }
-    .nav a:hover, .nav a.active {
-        background: #334155;
-        color: white;
-    }
-    .search {
-        width: 100%;
-        padding: 10px;
-        margin-bottom: 20px;
-        border-radius: 6px;
-        border: 1px solid #475569;
-    }
-</style>
-</head>
-<body>
-
-<div class="container">
-    <!-- 사이드바 -->
-    <div class="sidebar">
-        <h2 style="margin-bottom:20px;">📖 나만의 위키</h2>
-        <input type="text" id="search" class="search" placeholder="페이지 검색..." onkeyup="searchPages()">
-        
-        <button onclick="newPage()" style="width:100%; padding:10px; margin-bottom:15px;">+ 새 페이지</button>
-        
-        <div class="nav" id="pageList"></div>
-    </div>
-
-    <!-- 메인 콘텐츠 -->
-    <div class="main">
-        <div id="viewMode">
-            <div style="display:flex; justify-content:space-between; align-items:center;">
-                <h1 class="page-title" id="pageTitle">환영합니다</h1>
-                <div>
-                    <button onclick="editPage()" class="edit-btn">✏️ 편집</button>
-                </div>
-            </div>
-            <div class="content" id="pageContent">
-                <p>이곳은 당신만의 위키입니다.</p>
-                <p>사이드바에서 페이지를 클릭하거나, <strong>"새 페이지"</strong>를 눌러보세요!</p>
-            </div>
-        </div>
-
-        <div id="editMode" style="display:none;">
-            <input type="text" id="editTitle" style="font-size:1.8rem; width:100%; margin-bottom:15px; padding:10px;">
-            <textarea id="editContent"></textarea>
-            <button onclick="savePage()" class="save-btn">💾 저장</button>
-            <button onclick="cancelEdit()" style="padding:8px 16px; background:#64748b;">취소</button>
-        </div>
-    </div>
-</div>
-
-<script>
-// 기본 데이터
-let pages = {
-    "환영합니다": `# 환영합니다!\n\n이 위키는 **로컬**에 저장됩니다.\n\n## 사용법\n- 사이드바에서 페이지 클릭\n- 새 페이지 버튼으로 생성\n- 편집 버튼으로 내용 수정`
-};
-
-// 현재 페이지
-let currentPage = "환영합니다";
-
-// 페이지 렌더링
-function renderPageList() {
-    const list = document.getElementById('pageList');
-    list.innerHTML = '';
-    
-    Object.keys(pages).forEach(title => {
-        const a = document.createElement('a');
-        a.href = '#';
-        a.textContent = title;
-        a.className = title === currentPage ? 'active' : '';
-        a.onclick = () => loadPage(title);
-        list.appendChild(a);
-    });
-}
-
-function loadPage(title) {
-    currentPage = title;
-    document.getElementById('pageTitle').textContent = title;
-    document.getElementById('pageContent').innerHTML = marked.parse(pages[title] || '');
-    renderPageList();
-}
-
-function editPage() {
-    document.getElementById('viewMode').style.display = 'none';
-    document.getElementById('editMode').style.display = 'block';
-    
-    document.getElementById('editTitle').value = currentPage;
-    document.getElementById('editContent').value = pages[currentPage] || '';
-}
-
-function savePage() {
-    const newTitle = document.getElementById('editTitle').value.trim();
-    const newContent = document.getElementById('editContent').value;
-    
-    if (!newTitle) {
-        alert("제목을 입력해주세요.");
-        return;
-    }
-    
-    // 제목 변경 시
-    if (newTitle !== currentPage) {
-        delete pages[currentPage];
-    }
-    
-    pages[newTitle] = newContent;
-    currentPage = newTitle;
-    
-    document.getElementById('viewMode').style.display = 'block';
-    document.getElementById('editMode').style.display = 'none';
-    
-    renderPageList();
-    loadPage(newTitle);
-    
-    // 로컬 저장
-    localStorage.setItem('myWiki', JSON.stringify(pages));
-}
-
-function cancelEdit() {
-    document.getElementById('viewMode').style.display = 'block';
-    document.getElementById('editMode').style.display = 'none';
-}
-
-function newPage() {
-    const title = prompt("새 페이지 제목을 입력하세요:");
-    if (title && !pages[title]) {
-        pages[title] = `# ${title}\n\n내용을 입력하세요...`;
-        loadPage(title);
-    }
-}
-
-function searchPages() {
-    const term = document.getElementById('search').value.toLowerCase();
-    const links = document.querySelectorAll('.nav a');
-    
-    links.forEach(link => {
-        link.style.display = link.textContent.toLowerCase().includes(term) ? 'block' : 'none';
-    });
-}
-
-// Marked.js (Markdown 렌더링)
-const marked = {
-    parse: text => {
-        return text
-            .replace(/^### (.*$)/gm, '<h3>$1</h3>')
-            .replace(/^## (.*$)/gm, '<h2>$1</h2>')
-            .replace(/^# (.*$)/gm, '<h1>$1</h1>')
-            .replace(/\*\*(.*)\*\*/g, '<strong>$1</strong>')
-            .replace(/\*(.*)\*/g, '<em>$1</em>')
-            .replace(/^\- (.*$)/gm, '<li>$1</li>')
-            .replace(/\n/g, '<br>');
-    }
-};
-
-// 초기화
-if (localStorage.getItem('myWiki')) {
-    pages = JSON.parse(localStorage.getItem('myWiki'));
-}
-
-renderPageList();
-loadPage(currentPage);
-</script>
-
 </body>
 </html>
