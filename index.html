@@ -2,70 +2,218 @@
 <html lang="ko">
 <head>
 <meta charset="UTF-8">
-<title>나만의 위키</title>
+<title>나만의 나무마크 위키</title>
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <style>
-    :root {
-        --primary: #2563eb;
-    }
+    :root { --primary: #2563eb; }
     * { margin:0; padding:0; box-sizing:border-box; }
     body {
-        font-family: 'Malgun Gothic', sans-serif;
+        font-family: 'Malgun Gothic', 'Dotum', sans-serif;
         background: #f8fafc;
         color: #1e2937;
+        line-height: 1.7;
     }
-    .container {
-        display: flex;
-        height: 100vh;
-    }
+    .container { display: flex; height: 100vh; }
     .sidebar {
-        width: 260px;
+        width: 280px;
         background: #1e2937;
         color: white;
         padding: 20px;
         overflow-y: auto;
     }
-    .main {
-        flex: 1;
-        padding: 30px;
-        overflow-y: auto;
-    }
-    h1 { font-size: 2.2rem; margin-bottom: 20px; }
-    .page-title {
-        font-size: 1.8rem;
-        margin-bottom: 15px;
-        border-bottom: 3px solid var(--primary);
-        padding-bottom: 10px;
-    }
-    .content {
-        line-height: 1.7;
-        font-size: 1.05rem;
-    }
+    .main { flex: 1; padding: 30px; overflow-y: auto; background: white; }
+    h1, h2, h3 { margin: 1.2em 0 0.6em; }
+    .page-title { font-size: 2.2rem; border-bottom: 3px solid var(--primary); padding-bottom: 10px; }
+    .content { max-width: 780px; }
     .edit-btn, .save-btn {
-        padding: 8px 16px;
+        padding: 10px 18px;
         background: var(--primary);
         color: white;
         border: none;
         border-radius: 6px;
         cursor: pointer;
-        margin: 10px 5px 10px 0;
+        margin-right: 8px;
     }
     textarea {
         width: 100%;
-        height: 70vh;
-        padding: 15px;
-        font-family: monospace;
-        font-size: 1rem;
+        height: 75vh;
+        padding: 20px;
+        font-family: 'Consolas', monospace;
+        font-size: 1.05rem;
         border: 1px solid #cbd5e1;
         border-radius: 8px;
+        resize: vertical;
     }
     .nav a {
         display: block;
-        padding: 8px 12px;
+        padding: 10px 12px;
         color: #cbd5e1;
         text-decoration: none;
         border-radius: 6px;
+        margin-bottom: 4px;
     }
+    .nav a:hover, .nav a.active { background: #334155; color: white; }
+    .search { width: 100%; padding: 12px; margin-bottom: 20px; border-radius: 6px; border: 1px solid #475569; }
+    table { border-collapse: collapse; width: 100%; margin: 15px 0; }
+    th, td { border: 1px solid #ddd; padding: 8px 12px; text-align: left; }
+    th { background: #f1f5f9; }
+</style>
+</head>
+<body>
+
+<div class="container">
+    <div class="sidebar">
+        <h2 style="margin-bottom:20px;">📖 나무마크 위키</h2>
+        <input type="text" id="search" class="search" placeholder="페이지 검색..." onkeyup="searchPages()">
+        <button onclick="newPage()" style="width:100%; padding:12px; margin-bottom:15px; font-size:1.05rem;">+ 새 페이지</button>
+        <div class="nav" id="pageList"></div>
+    </div>
+
+    <div class="main">
+        <div id="viewMode">
+            <div style="display:flex; justify-content:space-between; align-items:center;">
+                <h1 class="page-title" id="pageTitle">환영합니다</h1>
+                <button onclick="editPage()" class="edit-btn">✏️ 편집</button>
+            </div>
+            <div class="content" id="pageContent"></div>
+        </div>
+
+        <div id="editMode" style="display:none;">
+            <input type="text" id="editTitle" style="font-size:1.8rem; width:100%; margin-bottom:15px; padding:12px; border:1px solid #cbd5e1; border-radius:6px;">
+            <textarea id="editContent"></textarea><br>
+            <button onclick="savePage()" class="save-btn">💾 저장하기</button>
+            <button onclick="cancelEdit()" style="padding:10px 18px; background:#64748b; color:white; border:none; border-radius:6px;">취소</button>
+        </div>
+    </div>
+</div>
+
+<script>
+// 나무마크 렌더러 (주요 문법 지원)
+function namumarkToHTML(text) {
+    let html = text;
+
+    // 제목
+    html = html.replace(/^====== (.*?) ======$/gm, '<h1>$1</h1>');
+    html = html.replace(/^===== (.*?) =====$/gm, '<h2>$1</h2>');
+    html = html.replace(/^==== (.*?) ====$/gm, '<h3>$1</h3>');
+    html = html.replace(/^=== (.*?) ===$/gm, '<h4>$1</h4>');
+    html = html.replace(/^== (.*?) ==$/gm, '<h5>$1</h5>');
+    html = html.replace(/^= (.*?) =$/gm, '<h6>$1</h6>');
+
+    // 굵게, 기울임
+    html = html.replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>');
+    html = html.replace(/''(.+?)''/g, '<em>$1</em>');
+
+    // 내부링크
+    html = html.replace(/\[\[(.+?)\]\]/g, '<a href="#" onclick="loadPage(\'$1\')">$1</a>');
+
+    // 외부링크
+    html = html.replace(/\[(https?:\/\/.+?) (.+?)\]/g, '<a href="$1" target="_blank">$2</a>');
+
+    // 이미지 (기본 지원)
+    html = html.replace(/\[파일:(.+?)\]/g, '<img src="$1" style="max-width:100%; border-radius:8px;">');
+
+    // 테이블
+    html = html.replace(/^\|\|(.+?)\|\|$/gm, (match) => {
+        const cells = match.slice(2, -2).split('||').map(cell => `<td>${cell.trim()}</td>`).join('');
+        return `<tr>${cells}</tr>`;
+    });
+
+    // 리스트
+    html = html.replace(/^\* (.+)$/gm, '<li>$1</li>');
+    html = html.replace(/(<li>.+<\/li>)/gs, '<ul>$1</ul>');
+
+    // 줄바꿈
+    html = html.replace(/\n/g, '<br>');
+
+    return html;
+}
+
+// 데이터 저장소
+let pages = {
+    "환영합니다": `= 환영합니다 =\n\n이 위키는 '''나무마크'''를 지원합니다.\n\n[[슈티어]] 문서를 만들어 보세요.\n\n== 사용 예시 ==\n* [[링크]]\n* '''굵게'''\n* ''기울임''`
+};
+
+// 현재 페이지
+let currentPage = "환영합니다";
+
+function renderPageList() {
+    const list = document.getElementById('pageList');
+    list.innerHTML = '';
+    Object.keys(pages).sort().forEach(title => {
+        const a = document.createElement('a');
+        a.href = '#';
+        a.textContent = title;
+        a.className = title === currentPage ? 'active' : '';
+        a.onclick = () => loadPage(title);
+        list.appendChild(a);
+    });
+}
+
+function loadPage(title) {
+    if (!pages[title]) return;
+    currentPage = title;
+    document.getElementById('pageTitle').textContent = title;
+    document.getElementById('pageContent').innerHTML = namumarkToHTML(pages[title]);
+    renderPageList();
+}
+
+function editPage() {
+    document.getElementById('viewMode').style.display = 'none';
+    document.getElementById('editMode').style.display = 'block';
+    document.getElementById('editTitle').value = currentPage;
+    document.getElementById('editContent').value = pages[currentPage] || '';
+}
+
+function savePage() {
+    const newTitle = document.getElementById('editTitle').value.trim();
+    const content = document.getElementById('editContent').value;
+
+    if (!newTitle) return alert("제목을 입력해주세요.");
+
+    if (newTitle !== currentPage) delete pages[currentPage];
+    pages[newTitle] = content;
+    currentPage = newTitle;
+
+    document.getElementById('viewMode').style.display = 'block';
+    document.getElementById('editMode').style.display = 'none';
+
+    renderPageList();
+    loadPage(newTitle);
+
+    localStorage.setItem('namumarkWiki', JSON.stringify(pages));
+}
+
+function cancelEdit() {
+    document.getElementById('viewMode').style.display = 'block';
+    document.getElementById('editMode').style.display = 'none';
+}
+
+function newPage() {
+    const title = prompt("새 페이지 제목을 입력하세요:");
+    if (title && !pages[title]) {
+        pages[title] = `= ${title} =\n\n내용을 작성해주세요.`;
+        loadPage(title);
+    }
+}
+
+function searchPages() {
+    const term = document.getElementById('search').value.toLowerCase();
+    document.querySelectorAll('.nav a').forEach(a => {
+        a.style.display = a.textContent.toLowerCase().includes(term) ? 'block' : 'none';
+    });
+}
+
+// 초기화
+if (localStorage.getItem('namumarkWiki')) {
+    pages = JSON.parse(localStorage.getItem('namumarkWiki'));
+}
+
+renderPageList();
+loadPage(currentPage);
+</script>
+</body>
+</html>    }
     .nav a:hover, .nav a.active {
         background: #334155;
         color: white;
