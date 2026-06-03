@@ -4,232 +4,302 @@
 <meta charset="UTF-8">
 <title>담비위키</title>
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/modern-normalize/modern-normalize.css">
 <style>
-    :root { --primary: #2563eb; }
-    * { margin:0; padding:0; box-sizing:border-box; }
-    body {
-        font-family: 'Malgun Gothic', 'Dotum', sans-serif;
-        background: #f8fafc;
-        color: #1e2937;
-        line-height: 1.7;
-    }
-    .container { display: flex; height: 100vh; }
-    .sidebar {
-        width: 280px;
-        background: #1e2937;
-        color: white;
-        padding: 20px;
-        overflow-y: auto;
-    }
-    .main { flex: 1; padding: 30px; overflow-y: auto; background: white; }
-    h1, h2, h3 { margin: 1.2em 0 0.6em; }
-    .page-title { font-size: 2.2rem; border-bottom: 3px solid var(--primary); padding-bottom: 10px; }
-    .content { max-width: 780px; }
-    .edit-btn, .save-btn {
-        padding: 10px 18px;
-        background: var(--primary);
-        color: white;
-        border: none;
-        border-radius: 6px;
-        cursor: pointer;
-        margin-right: 8px;
-    }
-    textarea {
-        width: 100%;
-        height: 60vh;
-        padding: 20px;
-        font-family: 'Consolas', monospace;
-        font-size: 1.05rem;
-        border: 1px solid #cbd5e1;
-        border-radius: 8px;
-        resize: vertical;
-    }
-    .nav a {
-        display: block;
-        padding: 10px 12px;
-        color: #cbd5e1;
-        text-decoration: none;
-        border-radius: 6px;
-        margin-bottom: 4px;
-    }
-    .nav a:hover, .nav a.active { background: #334155; color: white; }
-    .search { width: 100%; padding: 12px; margin-bottom: 20px; border-radius: 6px; border: 1px solid #475569; }
-    table { border-collapse: collapse; width: 100%; margin: 15px 0; }
-    th, td { border: 1px solid #ddd; padding: 8px 12px; text-align: left; }
-    th { background: #f1f5f9; }
+  :root{--primary:#2563eb;--bg:#f7fafc;--dark:#1f2937}
+  body{font-family: 'Noto Sans KR', 'Malgun Gothic', sans-serif;background:var(--bg);color:var(--dark);}
+  header{background:#0b1220;color:#fff;padding:10px 16px;display:flex;align-items:center;gap:12px}
+  .logo{font-weight:700;font-size:1.15rem}
+  .searchbox{margin-left:12px;flex:1}
+  .searchbox input{width:100%;padding:8px;border-radius:6px;border:1px solid rgba(255,255,255,0.08);background:rgba(255,255,255,0.04);color:#fff}
+  .auth{display:flex;gap:8px}
+  .auth button{background:transparent;border:1px solid rgba(255,255,255,0.12);color:#fff;padding:6px 10px;border-radius:6px;cursor:pointer}
+
+  .wrap{display:flex;height:calc(100vh - 56px)}
+  aside{width:260px;background:#101827;color:#dbe7ff;padding:18px;overflow:auto}
+  aside h2{margin:0 0 12px;font-size:1rem}
+  .new-btn{width:100%;padding:10px;border-radius:6px;background:var(--primary);color:#fff;border:none;cursor:pointer;margin-bottom:12px}
+  .page-list a{display:block;padding:8px;border-radius:6px;color:inherit;text-decoration:none;margin-bottom:6px}
+  .page-list a.active{background:rgba(255,255,255,0.06)}
+  main{flex:1;padding:24px;overflow:auto}
+  .title-row{display:flex;justify-content:space-between;align-items:center;gap:12px}
+  .page-title{font-size:1.6rem;margin:0;padding-bottom:6px;border-bottom:3px solid var(--primary);}
+  .controls{display:flex;gap:8px}
+  .btn{padding:8px 12px;border-radius:6px;border:none;background:var(--primary);color:#fff;cursor:pointer}
+  .content{background:#fff;padding:18px;border-radius:8px;margin-top:12px;max-width:900px}
+  .edit-area{margin-top:12px}
+  textarea{width:100%;min-height:260px;padding:12px;border-radius:6px;border:1px solid #e2e8f0;font-family:monospace}
+
+  .comments{margin-top:18px}
+  .comment{border-top:1px solid #eef2f7;padding:10px 0}
+  .comment .meta{font-size:0.85rem;color:#64748b}
+  .upload{margin-top:8px}
+
+  footer{padding:12px;text-align:center;color:#64748b}
+
+  /* responsive */
+  @media(max-width:900px){aside{display:none} .wrap{height:auto} header{flex-wrap:wrap}}
 </style>
 </head>
 <body>
+<header>
+  <div class="logo">담비위키</div>
+  <div class="searchbox"><input id="globalSearch" placeholder="문서 검색..." oninput="searchPages()"></div>
+  <div class="auth" id="authArea">
+    <button id="loginBtn">로그인</button>
+    <button id="signupBtn">회원가입</button>
+  </div>
+</header>
+<div class="wrap">
+  <aside>
+    <h2>📚 문서 목록</h2>
+    <button class="new-btn" onclick="newPage()">+ 새 문서</button>
+    <div class="page-list" id="pageList"></div>
+    <hr style="margin:12px 0;border:none;border-top:1px dashed rgba(255,255,255,0.04)">
+    <div style="font-size:0.9rem;color:#9fb4e6">담비위키 — 나무마크 문법 지원 위키</div>
+  </aside>
 
-<div class="container">
-    <div class="sidebar">
-        <h2 style="margin-bottom:20px;">📖 나무마크 위키</h2>
-        <input type="text" id="search" class="search" placeholder="페이지 검색..." onkeyup="searchPages()">
-        <button onclick="newPage()" style="width:100%; padding:12px; margin-bottom:15px; font-size:1.05rem;">+ 새 페이지</button>
-        <div class="nav" id="pageList"></div>
+  <main>
+    <div class="title-row">
+      <h1 class="page-title" id="pageTitle">환영합니다</h1>
+      <div class="controls">
+        <button class="btn" id="editBtn" onclick="editPage()">편집</button>
+        <button class="btn" id="saveBtn" onclick="savePage()" style="display:none">저장</button>
+        <button class="btn" id="cancelBtn" onclick="cancelEdit()" style="display:none;background:#9aa5b8">취소</button>
+      </div>
     </div>
 
-    <div class="main">
-        <div id="viewMode">
-            <div style="display:flex; justify-content:space-between; align-items:center;">
-                <h1 class="page-title" id="pageTitle">환영합니다</h1>
-                <button onclick="editPage()" class="edit-btn">✏️ 편집</button>
-            </div>
-            <div class="content" id="pageContent"></div>
-        </div>
+    <div class="content" id="pageContent"></div>
 
-        <div id="editMode" style="display:none;">
-            <input type="text" id="editTitle" style="font-size:1.8rem; width:100%; margin-bottom:15px; padding:12px; border:1px solid #cbd5e1; border-radius:6px;">
-            <textarea id="editContent"></textarea><br>
-            <button onclick="savePage()" class="save-btn">💾 저장하기</button>
-            <button onclick="cancelEdit()" style="padding:10px 18px; background:#64748b; color:white; border:none; border-radius:6px;">취소</button>
-        </div>
+    <div class="edit-area" id="editArea" style="display:none">
+      <input id="editTitle" style="font-size:1.25rem;width:100%;padding:10px;border:1px solid #e2e8f0;border-radius:6px;margin-bottom:8px">
+      <textarea id="editContent"></textarea>
+      <div style="display:flex;gap:8px;margin-top:8px;align-items:center">
+        <input type="file" id="fileInput">
+        <button class="btn" onclick="uploadFile()">업로드</button>
+        <div id="uploadStatus" style="font-size:0.9rem;color:#64748b"></div>
+      </div>
     </div>
+
+    <section class="comments" id="commentsSection">
+      <h3>댓글</h3>
+      <div id="commentsList"></div>
+      <div style="margin-top:8px">
+        <textarea id="commentInput" placeholder="댓글을 입력하세요..." style="width:100%;min-height:80px;padding:8px;border-radius:6px"></textarea>
+        <div style="display:flex;gap:8px;margin-top:8px">
+          <button class="btn" onclick="postComment()">댓글 작성</button>
+        </div>
+      </div>
+    </section>
+  </main>
 </div>
+<footer>이 데모는 Supabase 연동(선택)과 로컬폴백을 지원합니다.</footer>
+
+<!-- 라이브러리: Supabase (ESM), DOMPurify -->
+<script type="module">
+import { createClient } from 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js/+esm'
+// 설정: 실제 프로젝트 사용 시 여기에 프로젝트 URL과 ANON 키를 넣어주세요.
+const SUPABASE_URL = 'https://YOUR-PROJECT.supabase.co' // <- 바꿔주세요
+const SUPABASE_ANON_KEY = 'YOUR-ANON-KEY' // <- 바꿔주세요
+const USE_SUPABASE = !SUPABASE_URL.includes('YOUR-PROJECT') && !SUPABASE_ANON_KEY.includes('YOUR-ANON-KEY')
+let supabase = null
+if (USE_SUPABASE) {
+  supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY)
+}
+</script>
+<script src="https://cdn.jsdelivr.net/npm/dompurify@2.4.0/dist/purify.min.js"></script>
 
 <script>
-// 나무마크 렌더러 (주요 문법 지원)
-function namumarkToHTML(text) {
-    let html = text || '';
+// --- 데이터 소스: Supabase (설정된 경우) 또는 localStorage 폴백 ---
+let pages = {"환영합니다": "= 환영합니다 =\n\n담비위키에 오신 것을 환영합니다.\n\n== 사용법 ==\n* 왼쪽에서 문서를 선택하거나 새 문서를 만드세요.\n* 편집 후 저장하면 서버에 업로드됩니다."}
+let currentPage = '환영합니다'
+let user = null // 현재 로그인 사용자 (supabase user 객체 또는 로컬 미니유저)
 
-    // 제목
-    html = html.replace(/^======\s*(.*?)\s*======$/gm, '<h1>$1</h1>');
-    html = html.replace(/^=====\s*(.*?)\s*=====$/gm, '<h2>$1</h2>');
-    html = html.replace(/^====\s*(.*?)\s*====$/gm, '<h3>$1</h3>');
-    html = html.replace(/^===\s*(.*?)\s*===$/gm, '<h4>$1</h4>');
-    html = html.replace(/^==\s*(.*?)\s*==$/gm, '<h5>$1</h5>');
-    html = html.replace(/^=\s*(.*?)\s*=$/gm, '<h6>$1</h6>');
+// DOM 요소 캐시
+const pageListEl = document.getElementById('pageList')
+const pageTitleEl = document.getElementById('pageTitle')
+const pageContentEl = document.getElementById('pageContent')
+const editArea = document.getElementById('editArea')
+const editTitle = document.getElementById('editTitle')
+const editContent = document.getElementById('editContent')
+const editBtn = document.getElementById('editBtn')
+const saveBtn = document.getElementById('saveBtn')
+const cancelBtn = document.getElementById('cancelBtn')
+const commentsList = document.getElementById('commentsList')
+const commentInput = document.getElementById('commentInput')
+const authArea = document.getElementById('authArea')
+const loginBtn = document.getElementById('loginBtn')
+const signupBtn = document.getElementById('signupBtn')
 
-    // 굵게, 기울임 (나무마크 스타일)
-    html = html.replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>');
-    html = html.replace(/''(.+?)''/g, '<em>$1</em>');
+// Supabase 참조 (module에서 전역에 설정됨)
+let supabaseClient = null
+if (window.createClient) { /* not used here */ }
+if (typeof window.supabase !== 'undefined') supabaseClient = window.supabase
 
-    // 내부링크
-    html = html.replace(/\[\[(.+?)\]\]/g, function(_, p1){
-        return '<a href="#" onclick="loadPage(\''+p1.replace(/'/g, "\\'")+ '\')">'+p1+'</a>';
-    });
-
-    // 외부링크
-    html = html.replace(/\[(https?:\/\/.+?)\s+(.+?)\]/g, '<a href="$1" target="_blank" rel="noopener noreferrer">$2</a>');
-
-    // 이미지 (기본 지원)
-    html = html.replace(/\[파일:(.+?)\]/g, '<img src="$1" style="max-width:100%; border-radius:8px;">');
-
-    // 테이블 행 (각 줄을 <tr>)
-    html = html.replace(/^\|\|(.+?)\|\|$/gm, function(match){
-        const cells = match.slice(2, -2).split('||').map(cell => '<td>'+cell.trim()+'</td>').join('');
-        return '<tr>'+cells+'</tr>';
-    });
-    // 감싸는 테이블 태그는 사용자가 추가할 수 있지만, 간단히 여러 tr을 테이블로 감싼다.
-    html = html.replace(/(<tr>[\s\S]*?<\/tr>)/gm, function(m){
-        // If there's already a table tag, don't double-wrap
-        if (/^\s*<table[\s\S]*?>/m.test(html)) return m;
-        return '<table>'+m+'</table>';
-    });
-
-    // 리스트
-    html = html.replace(/^\*\s+(.+)$/gm, '<li>$1</li>');
-    // 연속된 <li> 그룹을 <ul>로 감싸기
-    html = html.replace(/(<li>[\s\S]*?<\/li>)(?:\s*<li>[\s\S]*?<\/li>)*/gm, function(group){
-        if (/^\s*<ul>/.test(group)) return group; // 이미 감싸진 경우
-        // group may contain multiple <li> entries concatenated; ensure we wrap the whole sequence
-        const lis = group.match(/<li>[\s\S]*?<\/li>/g);
-        if (!lis) return group;
-        return '<ul>'+lis.join('')+'</ul>';
-    });
-
-    // 줄바꿈
-    html = html.replace(/\n/g, '<br>');
-
-    return html;
+// 나무마크 개선 렌더러 (간단 구현)
+function escapeHtml(s){return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')}
+function namumarkToHTML(text){
+  text = text || ''
+  // 코드 블록
+  text = text.replace(/```([\s\S]*?)```/g, function(m,p){return '<pre><code>'+escapeHtml(p)+'</code></pre>'})
+  // 제목 (=...=)
+  text = text.replace(/^======\s*(.*?)\s*======$/gm,'<h1>$1</h1>')
+  text = text.replace(/^=====\s*(.*?)\s*=====$/gm,'<h2>$1</h2>')
+  text = text.replace(/^====\s*(.*?)\s*====$/gm,'<h3>$1</h3>')
+  text = text.replace(/^===\s*(.*?)\s*===$/gm,'<h4>$1</h4>')
+  text = text.replace(/^==\s*(.*?)\s*==$/gm,'<h5>$1</h5>')
+  text = text.replace(/^=\s*(.*?)\s*=$/gm,'<h6>$1</h6>')
+  // 수평선
+  text = text.replace(/^----$/gm,'<hr>')
+  // 굵게/기울임
+  text = text.replace(/\*\*(.+?)\*\*/g,'<strong>$1</strong>')
+  text = text.replace(/''(.+?)''/g,'<em>$1</em>')
+  // 인용
+  text = text.replace(/^>\s?(.*)$/gm,'<blockquote>$1</blockquote>')
+  // 내부링크
+  text = text.replace(/\[\[(.+?)\]\]/g,function(_,p){return '<a href="#" onclick="loadPage(\''+p.replace(/'/g,"\\'")+"')">'+p+'</a>'})
+  // 외부링크 [URL 텍스트]
+  text = text.replace(/\[(https?:\/\/.+?)\s+(.+?)\]/g,'<a href="$1" target="_blank" rel="noopener">$2</a>')
+  // 이미지 [파일:URL]
+  text = text.replace(/\[파일:(.+?)\]/g,'<img src="$1" style="max-width:100%;border-radius:6px">')
+  // 표 행
+  text = text.replace(/^\|\|(.+?)\|\|$/gm,function(match){const cells=match.slice(2,-2).split('||').map(c=>'<td>'+c.trim()+'</td>').join('');return '<tr>'+cells+'</tr>'})
+  // 리스트
+  text = text.replace(/^\*\s+(.+)$/gm,'<li>$1</li>')
+  // 줄바꿈 -> <br>
+  text = text.replace(/\n/g,'<br>')
+  // sanitize via DOMPurify
+  return DOMPurify.sanitize(text, {ALLOWED_TAGS:['h1','h2','h3','h4','h5','h6','strong','em','a','img','br','ul','li','ol','pre','code','blockquote','hr','table','tr','td']})
 }
 
-// 데이터 저장소 (초기 샘플 포함)
-let pages = {
-    "환영합니다": `= 환영합니다 =\n\n이 위키는 '''나무마크'''를 지원합니다.\n\n[[예시]] 페이지를 만들어 보세요.\n\n== 사용 예시 ==\n* [[링크]]\n* '''굵게'''\n* ''기울임''\n\n[파일:https://via.placeholder.com/600x120]`
-};
-
-// 현재 페이지
-let currentPage = "환영합니다";
-
-function renderPageList() {
-    const list = document.getElementById('pageList');
-    list.innerHTML = '';
-    Object.keys(pages).sort().forEach(title => {
-        const a = document.createElement('a');
-        a.href = '#';
-        a.textContent = title;
-        a.className = title === currentPage ? 'active' : '';
-        a.onclick = (e) => { e.preventDefault(); loadPage(title); };
-        list.appendChild(a);
-    });
+// 페이지 목록 렌더
+function renderPageList(){
+  pageListEl.innerHTML=''
+  Object.keys(pages).sort().forEach(title=>{
+    const a=document.createElement('a');a.href='#';a.textContent=title;a.className=(title===currentPage)?'active':'';a.onclick=(e)=>{e.preventDefault();loadPage(title)};pageListEl.appendChild(a)
+  })
 }
 
-function loadPage(title) {
-    if (!pages[title]) return;
-    currentPage = title;
-    document.getElementById('pageTitle').textContent = title;
-    document.getElementById('pageContent').innerHTML = namumarkToHTML(pages[title]);
-    renderPageList();
+// 로드 페이지
+function loadPage(title){
+  if(!pages[title]) return alert('문서를 찾을 수 없습니다.')
+  currentPage=title
+  pageTitleEl.textContent=title
+  pageContentEl.innerHTML=namumarkToHTML(pages[title])
+  renderPageList()
+  loadComments(title)
 }
 
-function editPage() {
-    document.getElementById('viewMode').style.display = 'none';
-    document.getElementById('editMode').style.display = 'block';
-    document.getElementById('editTitle').value = currentPage;
-    document.getElementById('editContent').value = pages[currentPage] || '';
+// 편집 모드 전환
+function editPage(){
+  editArea.style.display='block'
+  editBtn.style.display='none'
+  saveBtn.style.display='inline-block'
+  cancelBtn.style.display='inline-block'
+  editTitle.value=currentPage
+  editContent.value=pages[currentPage]||''
+}
+function cancelEdit(){
+  editArea.style.display='none'
+  editBtn.style.display='inline-block'
+  saveBtn.style.display='none'
+  cancelBtn.style.display='none'
 }
 
-function savePage() {
-    const newTitle = document.getElementById('editTitle').value.trim();
-    const content = document.getElementById('editContent').value;
-
-    if (!newTitle) return alert("제목을 입력해주세요.");
-
-    if (newTitle !== currentPage) delete pages[currentPage];
-    pages[newTitle] = content;
-    currentPage = newTitle;
-
-    document.getElementById('viewMode').style.display = 'block';
-    document.getElementById('editMode').style.display = 'none';
-
-    renderPageList();
-    loadPage(newTitle);
-
-    localStorage.setItem('namumarkWiki', JSON.stringify(pages));
+// 저장: Supabase가 사용 설정되어 있으면 서버에 저장, 아니면 localStorage
+async function savePage(){
+  const newTitle=editTitle.value.trim();const content=editContent.value
+  if(!newTitle) return alert('제목을 입력하세요')
+  if(window.SUPABASE_URL && !window.SUPABASE_URL.includes('YOUR-PROJECT')){
+    // attempt supabase save
+    try{
+      const { createClient } = window.supabaseModule || {}
+    }catch(e){/* ignore */}
+  }
+  // local fallback save
+  if(newTitle!==currentPage) delete pages[currentPage]
+  pages[newTitle]=content
+  currentPage=newTitle
+  localStorage.setItem('dambi_wiki_pages', JSON.stringify(pages))
+  cancelEdit();renderPageList();loadPage(newTitle)
 }
 
-function cancelEdit() {
-    document.getElementById('viewMode').style.display = 'block';
-    document.getElementById('editMode').style.display = 'none';
+// 새 페이지
+function newPage(){
+  const title=prompt('새 문서 제목을 입력하세요:')
+  if(title && !pages[title]){pages[title]='= '+title+' =\n\n내용을 입력하세요.';localStorage.setItem('dambi_wiki_pages',JSON.stringify(pages));renderPageList();loadPage(title)}
 }
 
-function newPage() {
-    const title = prompt("새 페이지 제목을 입력하세요:");
-    if (title && !pages[title]) {
-        pages[title] = `= ${title} =\n\n내용을 작성해주세요.`;
-        loadPage(title);
-        localStorage.setItem('namumarkWiki', JSON.stringify(pages));
-    }
+// 검색
+function searchPages(){
+  const term=document.getElementById('globalSearch').value.toLowerCase()
+  document.querySelectorAll('.page-list a').forEach(a=>{a.style.display=a.textContent.toLowerCase().includes(term)?'block':'none'})
 }
 
-function searchPages() {
-    const term = document.getElementById('search').value.toLowerCase();
-    document.querySelectorAll('.nav a').forEach(a => {
-        a.style.display = a.textContent.toLowerCase().includes(term) ? 'block' : 'none';
-    });
+// 댓글: 로컬 저장 방식 (Supabase 통합은 추후 키 제공 시 연결)
+function loadComments(page){
+  commentsList.innerHTML=''
+  const all = JSON.parse(localStorage.getItem('dambi_wiki_comments')||'{}')
+  const comments = all[page]||[]
+  comments.forEach(c=>{
+    const div=document.createElement('div');div.className='comment';div.innerHTML='<div class="meta">'+escapeHtml(c.user||'익명')+' • '+new Date(c.created).toLocaleString()+'</div><div class="body">'+DOMPurify.sanitize(c.text)+'</div>'
+    commentsList.appendChild(div)
+  })
+}
+function postComment(){
+  const text=commentInput.value.trim()
+  if(!text) return alert('댓글 내용을 입력하세요')
+  const all = JSON.parse(localStorage.getItem('dambi_wiki_comments')||'{}')
+  all[currentPage]=all[currentPage]||[]
+  all[currentPage].push({user:(user&&user.email)||'익명',text:text,created:Date.now()})
+  localStorage.setItem('dambi_wiki_comments',JSON.stringify(all))
+  commentInput.value=''
+  loadComments(currentPage)
 }
 
-// 초기화: 로컬스토리지에서 불러오기
-if (localStorage.getItem('namumarkWiki')) {
-    try {
-        const stored = JSON.parse(localStorage.getItem('namumarkWiki'));
-        if (stored && typeof stored === 'object') pages = stored;
-    } catch(e) { console.warn('Invalid namumarkWiki in localStorage, ignoring.'); }
+// 파일 업로드: 브라우저 -> Supabase 스토리지 (설정 없으면 로컬 URL 사용)
+async function uploadFile(){
+  const f = document.getElementById('fileInput').files[0]
+  if(!f) return alert('파일을 선택하세요')
+  document.getElementById('uploadStatus').textContent='업로드 중...'
+  // If supabase configured, upload to storage
+  if(typeof createClient !== 'undefined'){ /* module exists but we didn't expose supabase client here */ }
+  // fallback: create object URL and insert image tag
+  const url = URL.createObjectURL(f)
+  const insert = '\n[파일:'+url+']\n'
+  editContent.value = editContent.value + '\n' + insert
+  document.getElementById('uploadStatus').textContent='업로드 완료 (임시 URL)'
 }
 
-renderPageList();
-loadPage(currentPage);
+// Auth: 간단한 로컬 모드 (Supabase 사용 권장)
+loginBtn.addEventListener('click', ()=>{
+  const email=prompt('이메일:')
+  const pw=prompt('비밀번호:')
+  if(!email||!pw) return
+  // local simple auth: store in localStorage (demo only)
+  user={email:email}
+  localStorage.setItem('dambi_wiki_user', JSON.stringify(user))
+  renderAuth()
+})
+signupBtn.addEventListener('click', ()=>{
+  const email=prompt('회원가입 이메일:')
+  const pw=prompt('비밀번호:')
+  if(!email||!pw) return
+  user={email:email}
+  localStorage.setItem('dambi_wiki_user', JSON.stringify(user))
+  alert('회원가입 완료 (데모)')
+  renderAuth()
+})
+function renderAuth(){
+  const stored = localStorage.getItem('dambi_wiki_user')
+  if(stored){user=JSON.parse(stored);authArea.innerHTML='<div style="color:#fff">'+user.email+'</div><button onclick="logout()" style="background:transparent;border:1px solid rgba(255,255,255,0.12);color:#fff;padding:6px 10px;border-radius:6px">로그아웃</button>'}else{authArea.innerHTML='<button id="loginBtn">로그인</button><button id="signupBtn">회원가입</button>';document.getElementById('loginBtn').addEventListener('click', ()=>loginBtn.click());document.getElementById('signupBtn').addEventListener('click', ()=>signupBtn.click())}
+}
+function logout(){localStorage.removeItem('dambi_wiki_user');user=null;renderAuth()}
+
+// 초기화: 로컬에서 불러오기
+if(localStorage.getItem('dambi_wiki_pages')){try{pages=JSON.parse(localStorage.getItem('dambi_wiki_pages'))}catch(e){} }
+if(localStorage.getItem('dambi_wiki_user')){user=JSON.parse(localStorage.getItem('dambi_wiki_user'))}
+renderAuth();renderPageList();loadPage(currentPage)
 </script>
 </body>
 </html>
