@@ -14,6 +14,7 @@
   .searchbox input{width:100%;padding:8px;border-radius:6px;border:1px solid rgba(255,255,255,0.08);background:rgba(255,255,255,0.04);color:#fff}
   .auth{display:flex;gap:8px}
   .auth button{background:transparent;border:1px solid rgba(255,255,255,0.12);color:#fff;padding:6px 10px;border-radius:6px;cursor:pointer}
+  .admin-btn{background:#0ea5a4;border:1px solid rgba(255,255,255,0.08);color:#fff;padding:6px 10px;border-radius:6px}
 
   .wrap{display:flex;height:calc(100vh - 56px)}
   aside{width:260px;background:#101827;color:#dbe7ff;padding:18px;overflow:auto}
@@ -37,6 +38,8 @@
   .comment .meta{font-size:0.85rem;color:#64748b}
   .upload{margin-top:8px}
   .meta-badge{font-size:0.8rem;color:#64748b;margin-left:8px}
+
+  .toast{position:fixed;right:18px;bottom:18px;background:#0b1220;color:#fff;padding:10px 14px;border-radius:8px;box-shadow:0 4px 12px rgba(2,6,23,.6);display:none}
 
   footer{padding:12px;text-align:center;color:#64748b}
 
@@ -68,6 +71,7 @@
       <h1 class="page-title" id="pageTitle">환영합니다</h1>
       <div class="controls">
         <button class="btn" id="editBtn" onclick="editPage()">편집</button>
+        <button class="btn" id="historyBtn" onclick="openHistory()">히스토리</button>
         <button class="btn" id="saveBtn" onclick="savePage()" style="display:none">저장</button>
         <button class="btn" id="cancelBtn" onclick="cancelEdit()" style="display:none;background:#9aa5b8">취소</button>
         <button class="btn danger" id="deleteBtn" onclick="deletePage()">삭제</button>
@@ -100,6 +104,8 @@
 </div>
 <footer>이 데모는 Supabase 연동(선택)과 로컬폴백을 지원합니다.</footer>
 
+<div id="toast" class="toast"></div>
+
 <!-- 라이브러리: Supabase (ESM), DOMPurify -->
 <script type="module">
 import { createClient } from 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js/+esm'
@@ -118,7 +124,10 @@ if (USE_SUPABASE) {
 // --- 데이터 소스: Supabase (설정된 경우) 또는 localStorage 폴백 ---
 let pages = {"환영합니다": "= 환영합니다 =\n\n담비위키에 오신 것을 환영합니다.\n\n== 사용법 ==\n* 왼쪽에서 문서를 선택하거나 새 문서를 만드세요.\n* 편집 후 저장하면 서버에 업로드됩니다."}
 let pagesMeta = {} // title -> { owner, createdAt, updatedAt }
-let trash = {} // title -> { content, meta, comments, deletedBy, deletedAt }
+let trash = {} // title -> { content, meta, comments, deletedBy, deletedAt, reason }
+let pagesHistory = {} // title -> [{content, author, timestamp, message}]
+let deletionLog = [] // array of {title, deletedBy, deletedAt, reason, backlinks}
+let users = [] // local user list {email}
 let currentPage = '환영합니다'
 let user = null // 현재 로그인 사용자 (supabase user 객체 또는 로컬 미니유저)
 
@@ -130,6 +139,7 @@ const editArea = document.getElementById('editArea')
 const editTitle = document.getElementById('editTitle')
 const editContent = document.getElementById('editContent')
 const editBtn = document.getElementById('editBtn')
+const historyBtn = document.getElementById('historyBtn')
 const saveBtn = document.getElementById('saveBtn')
 const cancelBtn = document.getElementById('cancelBtn')
 const deleteBtn = document.getElementById('deleteBtn')
@@ -139,12 +149,24 @@ const authArea = document.getElementById('authArea')
 const loginBtn = document.getElementById('loginBtn')
 const signupBtn = document.getElementById('signupBtn')
 const openTrashBtn = document.getElementById('openTrashBtn')
+const toastEl = document.getElementById('toast')
 
 // Admin email stored in localStorage 'dambi_wiki_admin' (first signup becomes admin)
 let adminEmail = localStorage.getItem('dambi_wiki_admin') || null
 
-// 나무마크 개선 렌더러 (간단 구현)
-function escapeHtml(s){return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')}
+// util: toast
+function showToast(msg, ms=3000){ toastEl.textContent = msg; toastEl.style.display='block'; setTimeout(()=>{ toastEl.style.display='none' }, ms) }
+
+// 나무마크 개선 렌더러 (더 나무위키 스타일 규칙 일부 구현)
+function escapeHtml(s){return (s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')}
+function wrapListGroups(html){
+  // wrap consecutive <li> into <ul>
+  return html.replace(/(<li>[\s\S]*?<\/li>)(?:\s*<li>[\s\S]*?<\/li>)*/g, function(group){
+    const lis = group.match(/<li>[\s\S]*?<\/li>/g)
+    if(!lis) return group
+    return '<ul>'+lis.join('')+'</ul>'
+  })
+}
 function namumarkToHTML(text){
   text = text || ''
   // 코드 블록
@@ -171,282 +193,130 @@ function namumarkToHTML(text){
   text = text.replace(/\[파일:(.+?)\]/g,'<img src="$1" style="max-width:100%;border-radius:6px">')
   // 표 행
   text = text.replace(/^\|\|(.+?)\|\|$/gm,function(match){const cells=match.slice(2,-2).split('||').map(c=>'<td>'+c.trim()+'</td>').join('');return '<tr>'+cells+'</tr>'})
-  // 리스트
+  // 순서/비순서 리스트
+  text = text.replace(/^\-\s+(.+)$/gm,'<li>$1</li>')
   text = text.replace(/^\*\s+(.+)$/gm,'<li>$1</li>')
+  text = text.replace(/^\d+\.\s+(.+)$/gm,'<li>$1</li>')
   // 줄바꿈 -> <br>
   text = text.replace(/\n/g,'<br>')
-  // sanitize via DOMPurify
+  // wrap li groups
+  text = wrapListGroups(text)
+  // sanitize
   return DOMPurify.sanitize(text, {ALLOWED_TAGS:['h1','h2','h3','h4','h5','h6','strong','em','a','img','br','ul','li','ol','pre','code','blockquote','hr','table','tr','td']})
 }
 
-// 저장 로직: pages, pagesMeta, trash, comments in localStorage keys
+// 저장 로직: pages, pagesMeta, trash, comments, history, users, logs in localStorage keys
 function saveAllToLocal(){
   localStorage.setItem('dambi_wiki_pages', JSON.stringify(pages))
   localStorage.setItem('dambi_wiki_meta', JSON.stringify(pagesMeta))
   localStorage.setItem('dambi_wiki_trash', JSON.stringify(trash))
+  localStorage.setItem('dambi_wiki_history', JSON.stringify(pagesHistory))
+  localStorage.setItem('dambi_wiki_deletion_log', JSON.stringify(deletionLog))
+  localStorage.setItem('dambi_wiki_users', JSON.stringify(users))
 }
-
 function loadAllFromLocal(){
   try{ if(localStorage.getItem('dambi_wiki_pages')) pages = JSON.parse(localStorage.getItem('dambi_wiki_pages')) }catch(e){}
   try{ if(localStorage.getItem('dambi_wiki_meta')) pagesMeta = JSON.parse(localStorage.getItem('dambi_wiki_meta')) }catch(e){}
   try{ if(localStorage.getItem('dambi_wiki_trash')) trash = JSON.parse(localStorage.getItem('dambi_wiki_trash')) }catch(e){}
+  try{ if(localStorage.getItem('dambi_wiki_history')) pagesHistory = JSON.parse(localStorage.getItem('dambi_wiki_history')) }catch(e){}
+  try{ if(localStorage.getItem('dambi_wiki_deletion_log')) deletionLog = JSON.parse(localStorage.getItem('dambi_wiki_deletion_log')) }catch(e){}
+  try{ if(localStorage.getItem('dambi_wiki_users')) users = JSON.parse(localStorage.getItem('dambi_wiki_users')) }catch(e){}
 }
 
-// 페이지 목록 렌더
-function updateTrashButton(){
-  const cnt = Object.keys(trash).length
-  openTrashBtn.textContent = '휴지통 ('+cnt+')'
-}
-function renderPageList(){
-  pageListEl.innerHTML=''
-  Object.keys(pages).sort().forEach(title=>{
-    const a=document.createElement('a');a.href='#';a.textContent=title;a.className=(title===currentPage)?'active':'';a.onclick=(e)=>{e.preventDefault();loadPage(title)};pageListEl.appendChild(a)
-  })
-  updateTrashButton()
-}
+function updateTrashButton(){ const cnt = Object.keys(trash).length; openTrashBtn.textContent = '휴지통 ('+cnt+')' }
+function renderPageList(){ pageListEl.innerHTML=''; Object.keys(pages).sort().forEach(title=>{ const a=document.createElement('a');a.href='#';a.textContent=title;a.className=(title===currentPage)?'active':'';a.onclick=(e)=>{e.preventDefault();loadPage(title)};pageListEl.appendChild(a) }); updateTrashButton() }
 
 // backlinks 찾기
-function findBacklinks(title){
-  const backlinks = []
-  Object.keys(pages).forEach(t=>{
-    if(t===title) return
-    if((pages[t]||'').includes('[['+title+']]')) backlinks.push(t)
-  })
-  return backlinks
-}
+function findBacklinks(title){ const backlinks = []; Object.keys(pages).forEach(t=>{ if(t===title) return; if((pages[t]||'').includes('[['+title+']]')) backlinks.push(t) }); return backlinks }
 
 // 로드 페이지
-function loadPage(title){
-  if(!pages[title]) return alert('문서를 찾을 수 없습니다.')
-  currentPage=title
-  pageTitleEl.textContent=title
-  pageContentEl.innerHTML=namumarkToHTML(pages[title])
-  renderPageList()
-  loadComments(title)
-  // show owner info
-  const meta = pagesMeta[title]
-  let badge = ''
-  if(meta && meta.owner) badge = '<span class="meta-badge">작성자: '+escapeHtml(meta.owner)+'</span>'
-  pageTitleEl.innerHTML = escapeHtml(title) + badge
-}
+function loadPage(title){ if(!pages[title]) return alert('문서를 찾을 수 없습니다.'); currentPage=title; pageTitleEl.textContent=title; pageContentEl.innerHTML=namumarkToHTML(pages[title]); renderPageList(); loadComments(title); const meta = pagesMeta[title]; let badge = ''; if(meta && meta.owner) badge = '<span class="meta-badge">작성자: '+escapeHtml(meta.owner)+'</span>'; pageTitleEl.innerHTML = escapeHtml(title) + badge }
 
-// 편집 모드 전환
-function editPage(){
-  const meta = pagesMeta[currentPage] || {}
-  // 권한 확인: 수정은 소유자 또는 admin만 가능
-  if(meta.owner){
-    if(!user || (user.email !== meta.owner && user.email !== adminEmail)){
-      return alert('수정 권한이 없습니다. 문서 소유자 또는 관리자만 수정할 수 있습니다.')
-    }
-  }
-  editArea.style.display='block'
-  editBtn.style.display='none'
-  saveBtn.style.display='inline-block'
-  cancelBtn.style.display='inline-block'
-  editTitle.value=currentPage
-  editContent.value=pages[currentPage]||''
-}
-function cancelEdit(){
-  editArea.style.display='none'
-  editBtn.style.display='inline-block'
-  saveBtn.style.display='none'
-  cancelBtn.style.display='none'
-}
+// 편집 모드 전환 (권한 검사)
+function editPage(){ const meta = pagesMeta[currentPage] || {}; if(meta.owner){ if(!user || (user.email !== meta.owner && user.email !== adminEmail)){ return alert('수정 권한이 없습니다. 문서 소유자 또는 관리자만 수정할 수 있습니다.') } } editArea.style.display='block'; editBtn.style.display='none'; saveBtn.style.display='inline-block'; cancelBtn.style.display='inline-block'; editTitle.value=currentPage; editContent.value=pages[currentPage]||'' }
+function cancelEdit(){ editArea.style.display='none'; editBtn.style.display='inline-block'; saveBtn.style.display='none'; cancelBtn.style.display='none' }
 
-// 저장: 로컬로 메타 업데이트. Supabase 연동 시 서버로 교체 가능
-async function savePage(){
-  const newTitle=editTitle.value.trim();const content=editContent.value
-  if(!newTitle) return alert('제목을 입력하세요')
-  // 제목 변경 처리: 이동된 메타
-  if(newTitle !== currentPage){
-    // move meta
-    if(pagesMeta[currentPage]) pagesMeta[newTitle] = pagesMeta[currentPage]
-    delete pages[currentPage]
-    delete pagesMeta[currentPage]
+// 저장: 버전관리(이전 버전 저장) + 메타 업데이트
+async function savePage(){ const newTitle=editTitle.value.trim(); const content=editContent.value; if(!newTitle) return alert('제목을 입력하세요');
+  // permission: if existing page has owner, ensure current user is owner or admin
+  if(pagesMeta[currentPage]){
+    const meta = pagesMeta[currentPage]
+    if(meta.owner && (!user || (user.email !== meta.owner && user.email !== adminEmail))){ return alert('저장 권한이 없습니다.') }
   }
-  pages[newTitle]=content
-  const now = Date.now()
-  if(!pagesMeta[newTitle]) pagesMeta[newTitle] = { owner: (user&&user.email)||null, createdAt: now, updatedAt: now }
-  else pagesMeta[newTitle].updatedAt = now
-  currentPage = newTitle
-  saveAllToLocal()
-  cancelEdit();renderPageList();loadPage(newTitle)
-}
+  // push history (store previous content)
+  if(pages[currentPage]){
+    pagesHistory[currentPage] = pagesHistory[currentPage]||[]
+    pagesHistory[currentPage].push({content: pages[currentPage], author: (user&&user.email)||'익명', timestamp: Date.now(), message: '자동 저장된 이전 버전'})
+  }
+  // 제목 변경 handling
+  if(newTitle !== currentPage){ if(pagesMeta[currentPage]) pagesMeta[newTitle] = pagesMeta[currentPage]; delete pages[currentPage]; delete pagesMeta[currentPage]; if(pagesHistory[currentPage]){ pagesHistory[newTitle] = pagesHistory[currentPage]; delete pagesHistory[currentPage]; } }
+  pages[newTitle]=content; const now = Date.now(); if(!pagesMeta[newTitle]) pagesMeta[newTitle] = { owner: (user&&user.email)||null, createdAt: now, updatedAt: now }; else pagesMeta[newTitle].updatedAt = now; currentPage = newTitle; saveAllToLocal(); cancelEdit(); renderPageList(); loadPage(newTitle); showToast('저장되었습니다.') }
+
+// 히스토리 보기 및 복원
+function openHistory(){ const title = currentPage; const history = pagesHistory[title]||[]; pageTitleEl.textContent = '히스토리: '+title; let html = '<div style="background:#fff;padding:12px;border-radius:8px">'; if(history.length===0) html += '<p>이 문서의 히스토리가 없습니다.</p>'; else{ html += '<ol>'; history.slice().reverse().forEach((h,idx)=>{ const i = history.length-1-idx; html += '<li style="margin-bottom:10px">작성자: '+escapeHtml(h.author)+' • '+new Date(h.timestamp).toLocaleString()+'<br><pre style="background:#f8fafc;padding:8px;border-radius:6px;white-space:pre-wrap">'+escapeHtml(h.content)+'</pre><button onclick="restoreVersion(\''+encodeURIComponent(title)+'\','+i+')">이 버전으로 복원</button></li>' }); html += '</ol>' } html += '</div>'; pageContentEl.innerHTML = html }
+function restoreVersion(encodedTitle, index){ const title = decodeURIComponent(encodedTitle); const history = pagesHistory[title]||[]; if(!history[index]) return alert('버전을 찾을 수 없습니다'); // push current to history
+  pagesHistory[title] = pagesHistory[title]||[]; pagesHistory[title].push({content: pages[title], author: (user&&user.email)||'익명', timestamp: Date.now(), message: '복원 전 버전'})
+  pages[title] = history[index].content; pagesMeta[title].updatedAt = Date.now(); saveAllToLocal(); renderPageList(); loadPage(title); showToast('해당 버전으로 복원되었습니다.') }
 
 // 새 페이지
-function newPage(){
-  const title=prompt('새 문서 제목을 입력하세요:')
-  if(title && !pages[title]){pages[title]='= '+title+' =\n\n내용을 입력하세요.';const now=Date.now();pagesMeta[title]={owner:(user&&user.email)||null,createdAt:now,updatedAt:now};saveAllToLocal();renderPageList();loadPage(title)}
-}
+function newPage(){ const title=prompt('새 문서 제목을 입력하세요:'); if(title && !pages[title]){ pages[title]='= '+title+' =\n\n내용을 입력하세요.'; const now=Date.now(); pagesMeta[title]={owner:(user&&user.email)||null,createdAt:now,updatedAt:now}; pagesHistory[title]=[]; saveAllToLocal(); renderPageList(); loadPage(title); showToast('문서가 생성되었습니다.') } }
 
 // 검색
-function searchPages(){
-  const term=document.getElementById('globalSearch').value.toLowerCase()
-  document.querySelectorAll('.page-list a').forEach(a=>{a.style.display=a.textContent.toLowerCase().includes(term)?'block':'none'})
-}
+function searchPages(){ const term=document.getElementById('globalSearch').value.toLowerCase(); document.querySelectorAll('.page-list a').forEach(a=>{a.style.display=a.textContent.toLowerCase().includes(term)?'block':'none'}) }
 
-// 댓글: 로컬 저장 방식 (Supabase 통합은 추후 키 제공 시 연결)
-function loadComments(page){
-  commentsList.innerHTML=''
-  const all = JSON.parse(localStorage.getItem('dambi_wiki_comments')||'{}')
-  const comments = all[page]||[]
-  comments.forEach(c=>{
-    const div=document.createElement('div');div.className='comment';div.innerHTML='<div class="meta">'+escapeHtml(c.user||'익명')+' • '+new Date(c.created).toLocaleString()+'</div><div class="body">'+DOMPurify.sanitize(c.text)+'</div>'
-    commentsList.appendChild(div)
-  })
-}
-function postComment(){
-  const text=commentInput.value.trim()
-  if(!text) return alert('댓글 내용을 입력하세요')
-  const all = JSON.parse(localStorage.getItem('dambi_wiki_comments')||'{}')
-  all[currentPage]=all[currentPage]||[]
-  all[currentPage].push({user:(user&&user.email)||'익명',text:text,created:Date.now()})
-  localStorage.setItem('dambi_wiki_comments',JSON.stringify(all))
-  commentInput.value=''
-  loadComments(currentPage)
-}
+// 댓글
+function loadComments(page){ commentsList.innerHTML=''; const all = JSON.parse(localStorage.getItem('dambi_wiki_comments')||'{}'); const comments = all[page]||[]; comments.forEach(c=>{ const div=document.createElement('div');div.className='comment';div.innerHTML='<div class="meta">'+escapeHtml(c.user||'익명')+' • '+new Date(c.created).toLocaleString()+'</div><div class="body">'+DOMPurify.sanitize(c.text)+'</div>'; commentsList.appendChild(div) }) }
+function postComment(){ const text=commentInput.value.trim(); if(!text) return alert('댓글 내용을 입력하세요'); const all = JSON.parse(localStorage.getItem('dambi_wiki_comments')||'{}'); all[currentPage]=all[currentPage]||[]; all[currentPage].push({user:(user&&user.email)||'익명',text:text,created:Date.now()}); localStorage.setItem('dambi_wiki_comments',JSON.stringify(all)); commentInput.value=''; loadComments(currentPage); showToast('댓글이 등록되었습니다.') }
 
-// 파일 업로드: 브라우저 -> Supabase 스토리지 (설정 없으면 로컬 URL 사용)
-async function uploadFile(){
-  const f = document.getElementById('fileInput').files[0]
-  if(!f) return alert('파일을 선택하세요')
-  document.getElementById('uploadStatus').textContent='업로드 중...'
-  // If supabase configured, upload to storage
-  if(typeof createClient !== 'undefined'){
-    // supabase integration placeholder
-  }
-  // fallback: create object URL and insert image tag
-  const url = URL.createObjectURL(f)
-  const insert = '\n[파일:'+url+']\n'
-  editContent.value = editContent.value + '\n' + insert
-  document.getElementById('uploadStatus').textContent='업로드 완료 (임시 URL)'
-}
+// 파일 업로드 (fallback)
+async function uploadFile(){ const f = document.getElementById('fileInput').files[0]; if(!f) return alert('파일을 선택하세요'); document.getElementById('uploadStatus').textContent='업로드 중...'; const url = URL.createObjectURL(f); const insert = '\n[파일:'+url+']\n'; editContent.value = editContent.value + '\n' + insert; document.getElementById('uploadStatus').textContent='업로드 완료 (임시 URL)'; showToast('파일이 임시로 업로드되었습니다.') }
 
-// 문서 삭제: soft delete -> trash with backlinks check and permission check
-function deletePage(){
-  const title = currentPage
-  const meta = pagesMeta[title] || {}
-  // permission: only owner or admin
-  if(meta.owner){
-    if(!user || (user.email !== meta.owner && user.email !== adminEmail)){
-      return alert('삭제 권한이 없습니다. 문서 소유자 또는 관리자만 삭제할 수 있습니다.')
-    }
-  } else {
-    // no owner: require admin
-    if(!user || user.email !== adminEmail){
-      return alert('소유자가 설정되지 않은 문서는 관리자만 삭제할 수 있습니다.')
-    }
-  }
-
-  // backlinks
-  const backlinks = findBacklinks(title)
-  if(backlinks.length>0){
-    if(!confirm('다음 문서들이 "'+title+'"을(를) 링크하고 있습니다:\n- '+backlinks.join('\n- ')+'\n\n계속 삭제하시겠습니까?')) return
-  } else {
-    if(!confirm('"'+title+'" 문서를 휴지통으로 이동하시겠습니까?')) return
-  }
-
-  // move to trash
-  const allComments = JSON.parse(localStorage.getItem('dambi_wiki_comments')||'{}')
-  const commentsForPage = allComments[title]||[]
-  trash[title] = { content: pages[title], meta: pagesMeta[title]||null, comments: commentsForPage, deletedBy: (user&&user.email)||'익명', deletedAt: Date.now() }
-  // remove
-  delete pages[title]
-  delete pagesMeta[title]
-  if(allComments[title]){ delete allComments[title]; localStorage.setItem('dambi_wiki_comments', JSON.stringify(allComments)) }
+// 문서 삭제: soft delete -> trash with backlinks, reason, permission, log
+function deletePage(){ const title = currentPage; const meta = pagesMeta[title] || {}; if(meta.owner){ if(!user || (user.email !== meta.owner && user.email !== adminEmail)){ return alert('삭제 권한이 없습니다. 문서 소유자 또는 관리자만 삭제할 수 있습니다.') } } else { if(!user || user.email !== adminEmail){ return alert('소유자가 설정되지 않은 문서는 관리자만 삭제할 수 있습니다.') } }
+  const backlinks = findBacklinks(title); if(backlinks.length>0){ if(!confirm('다음 문서들이 "'+title+'"을(를) 링크하고 있습니다:\n- '+backlinks.join('\n- ')+'\n\n계속 삭제하시겠습니까?')) return } else { if(!confirm('"'+title+'" 문서를 휴지통으로 이동하시겠습니까?')) return }
+  const reason = prompt('삭제 이유를 입력하세요 (선택):') || '';
+  const allComments = JSON.parse(localStorage.getItem('dambi_wiki_comments')||'{}'); const commentsForPage = allComments[title]||[];
+  trash[title] = { content: pages[title], meta: pagesMeta[title]||null, comments: commentsForPage, deletedBy: (user&&user.email)||'익명', deletedAt: Date.now(), reason: reason, backlinks: backlinks }
+  // removal
+  delete pages[title]; delete pagesMeta[title]; if(allComments[title]){ delete allComments[title]; localStorage.setItem('dambi_wiki_comments', JSON.stringify(allComments)) }
+  // log
+  deletionLog.push({title:title, deletedBy:(user&&user.email)||'익명', deletedAt: Date.now(), reason:reason, backlinks:backlinks})
   saveAllToLocal()
-
-  // select next page or create welcome
   const keys = Object.keys(pages)
-  if(keys.length===0){
-    pages['환영합니다'] = '= 환영합니다 =\n\n새 문서를 시작합니다.'
-    pagesMeta['환영합니다'] = { owner: null, createdAt: Date.now(), updatedAt: Date.now() }
-    saveAllToLocal();renderPageList();loadPage('환영합니다')
-  } else {
-    renderPageList();loadPage(keys[0])
-  }
-  alert('문서를 휴지통으로 이동했습니다.')
-}
+  if(keys.length===0){ pages['환영합니다'] = '= 환영합니다 =\n\n새 문서를 시작합니다.'; pagesMeta['환영합니다'] = { owner: null, createdAt: Date.now(), updatedAt: Date.now() }; saveAllToLocal(); renderPageList(); loadPage('환영합니다') } else { renderPageList(); loadPage(keys[0]) }
+  showToast('문서를 휴지통으로 이동했습니다.') }
 
 // 휴지통 보기
-function openTrash(){
-  // render trash list in main
-  pageTitleEl.textContent = '휴지통'
-  let html = '<div style="background:#fff;padding:12px;border-radius:8px">'
-  const keys = Object.keys(trash)
-  if(keys.length===0) html += '<p>휴지통이 비어 있습니다.</p>'
-  else{
-    html += '<ul>'
-    keys.forEach(t=>{
-      const item = trash[t]
-      html += '<li style="margin-bottom:8px"><strong>'+escapeHtml(t)+'</strong> — 삭제자: '+escapeHtml(item.deletedBy)+' • '+new Date(item.deletedAt).toLocaleString()+" <button onclick=\"restorePage('"+encodeURIComponent(t)+"')\" style='margin-left:8px'>복원</button> <button onclick=\"permanentlyDeletePage('"+encodeURIComponent(t)+"')\" style='margin-left:6px;background:#e11d48;color:#fff'>완전삭제</button></li>"
-    })
-    html += '</ul>'
-  }
-  html += '</div>'
-  pageContentEl.innerHTML = html
-}
+function openTrash(){ pageTitleEl.textContent = '휴지통'; let html = '<div style="background:#fff;padding:12px;border-radius:8px">'; const keys = Object.keys(trash); if(keys.length===0) html += '<p>휴지통이 비어 있습니다.</p>'; else{ html += '<ul>'; keys.forEach(t=>{ const item = trash[t]; html += '<li style="margin-bottom:8px"><strong>'+escapeHtml(t)+'</strong> — 삭제자: '+escapeHtml(item.deletedBy)+' • '+new Date(item.deletedAt).toLocaleString()+'<br>사유: '+escapeHtml(item.reason)+'<br>백링크: '+(item.backlinks&&item.backlinks.join(', ')||'없음')+" <div style='margin-top:6px'><button onclick=\"restorePage('"+encodeURIComponent(t)+"')\">복원</button> <button onclick=\"permanentlyDeletePage('"+encodeURIComponent(t)+"')\" style='margin-left:6px;background:#e11d48;color:#fff'>완전삭제</button></div></li>" }); html += '</ul>' } html += '</div>'; pageContentEl.innerHTML = html }
 
 // 복원
-function restorePage(encodedTitle){
-  const title = decodeURIComponent(encodedTitle)
-  if(!trash[title]) return alert('항목을 찾을 수 없습니다')
-  // restore content
-  pages[title] = trash[title].content
-  if(trash[title].meta) pagesMeta[title] = trash[title].meta
-  // restore comments
-  const allComments = JSON.parse(localStorage.getItem('dambi_wiki_comments')||'{}')
-  allComments[title] = trash[title].comments || []
-  localStorage.setItem('dambi_wiki_comments', JSON.stringify(allComments))
-  // remove from trash
-  delete trash[title]
-  saveAllToLocal();renderPageList();loadPage(title)
-  alert('복원되었습니다.')
-}
+function restorePage(encodedTitle){ const title = decodeURIComponent(encodedTitle); if(!trash[title]) return alert('항목을 찾을 수 없습니다'); pages[title] = trash[title].content; if(trash[title].meta) pagesMeta[title] = trash[title].meta; const allComments = JSON.parse(localStorage.getItem('dambi_wiki_comments')||'{}'); allComments[title] = trash[title].comments || []; localStorage.setItem('dambi_wiki_comments', JSON.stringify(allComments)); delete trash[title]; saveAllToLocal(); renderPageList(); loadPage(title); showToast('복원되었습니다.') }
 
 // 영구 삭제
-function permanentlyDeletePage(encodedTitle){
-  const title = decodeURIComponent(encodedTitle)
-  if(!trash[title]) return alert('항목을 찾을 수 없습니다')
-  if(!confirm('"'+title+'"을(를) 완전 삭제하시겠습니까? 이 작업은 되돌릴 수 없습니다.')) return
-  // remove from trash
-  delete trash[title]
-  saveAllToLocal();openTrash();alert('완전 삭제되었습니다.')
-}
+function permanentlyDeletePage(encodedTitle){ const title = decodeURIComponent(encodedTitle); if(!trash[title]) return alert('항목을 찾을 수 없습니다'); if(!confirm('"'+title+'"을(를) 완전 삭제하시겠습니까? 이 작업은 되돌릴 수 없습니다.')) return; delete trash[title]; saveAllToLocal(); openTrash(); showToast('완전 삭제되었습니다.') }
 
-// Auth: 간단한 로컬 모드 (Supabase 사용 권장)
-loginBtn.addEventListener('click', ()=>{
-  const email=prompt('이메일:')
-  const pw=prompt('비밀번호:')
-  if(!email||!pw) return
-  user={email:email}
-  localStorage.setItem('dambi_wiki_user', JSON.stringify(user))
-  renderAuth()
-})
-signupBtn.addEventListener('click', ()=>{
-  const email=prompt('회원가입 이메일:')
-  const pw=prompt('비밀번호:')
-  if(!email||!pw) return
-  user={email:email}
-  localStorage.setItem('dambi_wiki_user', JSON.stringify(user))
-  // first signup becomes admin if none
-  if(!localStorage.getItem('dambi_wiki_admin')){ localStorage.setItem('dambi_wiki_admin', email); adminEmail = email; alert('당신은 관리자 계정으로 설정되었습니다.') }
-  alert('회원가입 완료 (데모)')
-  renderAuth()
-})
-function renderAuth(){
-  const stored = localStorage.getItem('dambi_wiki_user')
-  adminEmail = localStorage.getItem('dambi_wiki_admin') || null
-  if(stored){user=JSON.parse(stored);let badge = (user.email===adminEmail)?' <span style="color:#fde68a">(관리자)</span>':'';authArea.innerHTML='<div style="color:#fff">'+escapeHtml(user.email)+badge+'</div><button onclick="logout()" style="background:transparent;border:1px solid rgba(255,255,255,0.12);color:#fff;padding:6px 10px;border-radius:6px">로그아웃</button>'}else{authArea.innerHTML='<button id="loginBtn">로그인</button><button id="signupBtn">회원가입</button>';document.getElementById('loginBtn').addEventListener('click', ()=>loginBtn.click());document.getElementById('signupBtn').addEventListener('click', ()=>signupBtn.click())}
-}
-function logout(){localStorage.removeItem('dambi_wiki_user');user=null;renderAuth()}
+// 관리자 콘솔
+function openAdmin(){ if(!user || user.email !== adminEmail) return alert('관리자 전용 기능입니다.'); pageTitleEl.textContent = '관리자 콘솔'; let html = '<div style="background:#fff;padding:12px;border-radius:8px">'; html += '<h3>사용자 목록</h3>'; html += '<ul>'; users.forEach(u=>{ html += '<li>'+escapeHtml(u.email)+' <button onclick="adminDeleteUser(\''+encodeURIComponent(u.email)+'\')">삭제</button></li>' }); html += '</ul>'; html += '<h3>삭제 로그</h3>'; if(deletionLog.length===0) html += '<p>삭제 로그가 없습니다.</p>'; else{ html += '<ol>'; deletionLog.slice().reverse().forEach(l=>{ html += '<li>'+escapeHtml(l.title)+' — 삭제자: '+escapeHtml(l.deletedBy)+' • '+new Date(l.deletedAt).toLocaleString()+'<br>사유: '+escapeHtml(l.reason)+'<br>백링크: '+(l.backlinks&&l.backlinks.join(', ')||'없음')+'</li>' }) html += '</ol>' } html += '</div>'; pageContentEl.innerHTML = html }
+function adminDeleteUser(encodedEmail){ const email = decodeURIComponent(encodedEmail); if(!confirm(email+' 사용자를 삭제하시겠습니까?')) return; users = users.filter(u=>u.email !== email); localStorage.setItem('dambi_wiki_users', JSON.stringify(users)); showToast('사용자를 삭제했습니다.'); renderAuth(); }
 
-// 초기화: 로컬에서 불러오기
-loadAllFromLocal()
-// if no pages exist, ensure welcome exists
-if(Object.keys(pages).length===0){pages['환영합니다'] = '= 환영합니다 =\n\n담비위키에 오신 것을 환영합니다.'}
-if(localStorage.getItem('dambi_wiki_user')){user=JSON.parse(localStorage.getItem('dambi_wiki_user'))}
-renderAuth();renderPageList();loadPage(currentPage)
+// Auth
+loginBtn.addEventListener('click', ()=>{ const email=prompt('이메일:'); const pw=prompt('비밀번호:'); if(!email||!pw) return; // simple local auth: check users
+  const found = users.find(u=>u.email===email); if(!found){ return alert('사용자가 없습니다. 회원가입 해주세요.') } user={email:email}; localStorage.setItem('dambi_wiki_user', JSON.stringify(user)); renderAuth(); showToast('로그인 되었습니다.') })
+signupBtn.addEventListener('click', ()=>{ const email=prompt('회원가입 이메일:'); const pw=prompt('비밀번호:'); if(!email||!pw) return; // save user
+  if(!users.find(u=>u.email===email)) users.push({email:email}); localStorage.setItem('dambi_wiki_users', JSON.stringify(users)); user={email:email}; localStorage.setItem('dambi_wiki_user', JSON.stringify(user)); // first signup becomes admin if none
+  if(!localStorage.getItem('dambi_wiki_admin')){ localStorage.setItem('dambi_wiki_admin', email); adminEmail = email; alert('당신은 관리자 계정으로 설정되었습니다.') } alert('회원가입 완료 (데모)'); renderAuth(); showToast('회원가입 완료') })
+function renderAuth(){ const stored = localStorage.getItem('dambi_wiki_user'); adminEmail = localStorage.getItem('dambi_wiki_admin') || null; if(stored){ user=JSON.parse(stored); let badge = (user.email===adminEmail)?' <span style="color:#fde68a">(관리자)</span>':''; authArea.innerHTML = '<div style="color:#fff">'+escapeHtml(user.email)+badge+'</div><button onclick="logout()" style="background:transparent;border:1px solid rgba(255,255,255,0.12);color:#fff;padding:6px 10px;border-radius:6px">로그아웃</button>';
+    // admin quick button
+    if(user.email===adminEmail){ const btn = document.createElement('button'); btn.textContent='관리자'; btn.className='admin-btn'; btn.style.marginLeft='8px'; btn.onclick = openAdmin; authArea.appendChild(btn) }
+  }else{ authArea.innerHTML = '<button id="loginBtn">로그인</button><button id="signupBtn">회원가입</button>'; document.getElementById('loginBtn').addEventListener('click', ()=>loginBtn.click()); document.getElementById('signupBtn').addEventListener('click', ()=>signupBtn.click()) } }
+function logout(){ localStorage.removeItem('dambi_wiki_user'); user=null; renderAuth(); showToast('로그아웃되었습니다.') }
+
+// 초기화
+loadAllFromLocal(); if(Object.keys(pages).length===0){ pages['환영합니다'] = '= 환영합니다 =\n\n담비위키에 오신 것을 환영합니다.' }
+// restore users list if empty (ensure at least current user in array)
+try{ if(!Array.isArray(users)) users = [] }catch(e){ users = [] }
+if(localStorage.getItem('dambi_wiki_user')){ user=JSON.parse(localStorage.getItem('dambi_wiki_user')) }
+renderAuth(); renderPageList(); loadPage(currentPage)
 </script>
 </body>
 </html>
