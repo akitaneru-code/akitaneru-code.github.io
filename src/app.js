@@ -252,6 +252,8 @@ export function appLoadPage(title, lang='ko'){
   // update URL
   const path = '/'+encodeURIComponent(title)+'/'+lang
   history.replaceState({}, '', path)
+  // update language selector
+  langSelect.value = lang
 }
 
 export function onLangChange(lang){
@@ -652,6 +654,51 @@ export function renderTOC(){
   tocContainer.appendChild(ul)
 }
 
+// URL 라우팅 처리
+export function routeFromUrl(){
+  const pathname = window.location.pathname
+  // /로 시작하는 경로만 처리
+  if(!pathname || pathname === '/' || pathname === '') {
+    appLoadPage(currentPage, 'ko')
+    return
+  }
+  
+  const parts = pathname.split('/').filter(Boolean)
+  
+  // 경로 형식: /문서제목/언어코드
+  if(parts.length >= 2){
+    const lang = parts[parts.length - 1]
+    const titleEncoded = parts[parts.length - 2]
+    const title = decodeURIComponent(titleEncoded)
+    
+    // 유효한 언어 코드 확인
+    const validLangs = ['ko', 'en', 'ja', 'zh']
+    if(validLangs.includes(lang) && pages[title]){
+      currentLang = lang
+      appLoadPage(title, lang)
+      return
+    }
+  }
+  
+  // 경로 형식: /문서제목 (기본 언어는 ko)
+  if(parts.length >= 1){
+    const titleEncoded = parts[parts.length - 1]
+    const title = decodeURIComponent(titleEncoded)
+    if(pages[title]){
+      appLoadPage(title, 'ko')
+      return
+    }
+  }
+  
+  // 경로를 찾을 수 없으면 기본 페이지 로드
+  appLoadPage(currentPage, 'ko')
+}
+
+// 뒤로가기/앞으로가기 처리
+window.addEventListener('popstate', ()=>{
+  routeFromUrl()
+})
+
 // startup
 loadAllFromLocal()
 if(Object.keys(pages).length===0){
@@ -665,20 +712,8 @@ renderAuth()
 renderPageList()
 setupAuthHandlers()
 
-// route: parse path /<title>/<lang>
-(function(){
-  const parts = window.location.pathname.split('/').filter(Boolean)
-  if(parts.length>=2){
-    const lang = parts.pop()
-    const title = decodeURIComponent(parts.pop())
-    currentLang = lang || 'ko'
-    if(pages[title]){
-      appLoadPage(title, currentLang)
-    }
-  } else {
-    appLoadPage(currentPage, currentLang)
-  }
-})()
+// 초기 페이지 로드 - URL 경로 기반으로 결정
+routeFromUrl()
 
 // expose some APIs to window for inline onclicks used in generated HTML
 window.appLoadPage = appLoadPage
@@ -687,6 +722,7 @@ window.permanentlyDeletePage = permanentlyDeletePage
 window.adminDeleteUser = adminDeleteUser
 window.restoreVersion = restoreVersion
 window.logout = logout
+window.routeFromUrl = routeFromUrl
 
 // expose saveAll for debugging
 window.saveAllToLocal = saveAllToLocal
