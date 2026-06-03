@@ -66,6 +66,7 @@
         <button class="btn" id="editBtn" onclick="editPage()">편집</button>
         <button class="btn" id="saveBtn" onclick="savePage()" style="display:none">저장</button>
         <button class="btn" id="cancelBtn" onclick="cancelEdit()" style="display:none;background:#9aa5b8">취소</button>
+        <button class="btn" id="deleteBtn" onclick="deletePage()" style="background:#e11d48">삭제</button>
       </div>
     </div>
 
@@ -269,6 +270,30 @@ async function uploadFile(){
   const insert = '\n[파일:'+url+']\n'
   editContent.value = editContent.value + '\n' + insert
   document.getElementById('uploadStatus').textContent='업로드 완료 (임시 URL)'
+}
+
+// 문서 삭제 기능
+function deletePage(){
+  if(!confirm('"'+currentPage+'" 문서를 정말 삭제하시겠습니까? 삭제된 문서는 복구할 수 없습니다.')) return;
+  // 삭제
+  delete pages[currentPage]
+  // 댓글도 함께 삭제
+  const all = JSON.parse(localStorage.getItem('dambi_wiki_comments')||'{}')
+  if(all[currentPage]){ delete all[currentPage]; localStorage.setItem('dambi_wiki_comments', JSON.stringify(all)); }
+  // 저장
+  localStorage.setItem('dambi_wiki_pages', JSON.stringify(pages))
+  // 다음 페이지 선택
+  const keys = Object.keys(pages)
+  if(keys.length===0){
+    pages['환영합니다'] = '= 환영합니다 =\n\n새 문서를 시작합니다.'
+    localStorage.setItem('dambi_wiki_pages', JSON.stringify(pages))
+    renderPageList();
+    loadPage('환영합니다');
+  } else {
+    renderPageList();
+    loadPage(keys[0]);
+  }
+  alert('문서가 삭제되었습니다.');
 }
 
 // Auth: 간단한 로컬 모드 (Supabase 사용 권장)
