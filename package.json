@@ -3,10 +3,12 @@
   "version": "1.0.0",
   "description": "Static wiki with local persistence, multilingual support and docs generation",
   "scripts": {
+    "start": "serve . -l 5000",
     "docs": "npx jsdoc src -d docs || echo 'jsdoc not installed'",
     "lint": "echo 'no linter configured'"
   },
   "devDependencies": {
-    "jsdoc": "^4.0.0"
+    "jsdoc": "^4.0.0",
+    "serve": "^14.2.6"
   }
 }
