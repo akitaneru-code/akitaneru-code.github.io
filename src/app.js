@@ -715,7 +715,7 @@ setupAuthHandlers()
 // 초기 페이지 로드 - URL 경로 기반으로 결정
 routeFromUrl()
 
-// expose some APIs to window for inline onclicks used in generated HTML
+// expose all functions used by inline onclick handlers and generated HTML
 window.appLoadPage = appLoadPage
 window.restorePage = restorePage
 window.permanentlyDeletePage = permanentlyDeletePage
@@ -723,6 +723,16 @@ window.adminDeleteUser = adminDeleteUser
 window.restoreVersion = restoreVersion
 window.logout = logout
 window.routeFromUrl = routeFromUrl
-
-// expose saveAll for debugging
 window.saveAllToLocal = saveAllToLocal
+window.searchPages = searchPages
+window.newPage = newPage
+window.openTrash = openTrash
+window.onLangChange = onLangChange
+window.editPage = editPage
+window.openHistory = openHistory
+window.savePage = savePage
+window.cancelEdit = cancelEdit
+window.deletePage = deletePage
+window.postComment = postComment
+window.uploadFile = uploadFile
+window.openAdmin = openAdmin
