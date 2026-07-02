@@ -53,6 +53,16 @@
 
   /* responsive */
   @media(max-width:900px){aside{display:none} .wrap{height:auto} header{flex-wrap:wrap}}
+
+  /* custom modal */
+  .modal-overlay{position:fixed;inset:0;background:rgba(0,0,0,0.45);z-index:9000;display:flex;align-items:center;justify-content:center}
+  .modal-box{background:#fff;border-radius:10px;padding:24px 28px;min-width:300px;max-width:480px;width:90%;box-shadow:0 8px 32px rgba(0,0,0,0.18)}
+  .modal-box p{margin:0 0 16px;font-size:0.97rem;color:#1f2937;white-space:pre-wrap}
+  .modal-box input{width:100%;padding:9px 10px;border:1px solid #e2e8f0;border-radius:6px;font-size:0.95rem;margin-bottom:14px;box-sizing:border-box}
+  .modal-btns{display:flex;gap:8px;justify-content:flex-end}
+  .modal-btns button{padding:8px 16px;border-radius:6px;border:none;cursor:pointer;font-size:0.9rem}
+  .modal-ok{background:var(--primary);color:#fff}
+  .modal-cancel{background:#e2e8f0;color:#374151}
 </style>
 </head>
 <body>

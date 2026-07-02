@@ -3,6 +3,46 @@
 
 const DOMPurify = window.DOMPurify
 
+// --- custom modal helpers (replaces alert/confirm/prompt blocked in iframes) ---
+function showAlert(msg) {
+  return new Promise(resolve => {
+    const overlay = document.createElement('div')
+    overlay.className = 'modal-overlay'
+    overlay.innerHTML = `<div class="modal-box"><p>${msg}</p><div class="modal-btns"><button class="modal-ok">확인</button></div></div>`
+    document.body.appendChild(overlay)
+    overlay.querySelector('.modal-ok').onclick = () => { overlay.remove(); resolve() }
+  })
+}
+
+function showConfirm(msg) {
+  return new Promise(resolve => {
+    const overlay = document.createElement('div')
+    overlay.className = 'modal-overlay'
+    overlay.innerHTML = `<div class="modal-box"><p>${msg}</p><div class="modal-btns"><button class="modal-cancel">취소</button><button class="modal-ok">확인</button></div></div>`
+    document.body.appendChild(overlay)
+    overlay.querySelector('.modal-ok').onclick = () => { overlay.remove(); resolve(true) }
+    overlay.querySelector('.modal-cancel').onclick = () => { overlay.remove(); resolve(false) }
+  })
+}
+
+function showPrompt(msg, defaultVal = '') {
+  return new Promise(resolve => {
+    const overlay = document.createElement('div')
+    overlay.className = 'modal-overlay'
+    overlay.innerHTML = `<div class="modal-box"><p>${msg}</p><input type="text" value="${defaultVal}"><div class="modal-btns"><button class="modal-cancel">취소</button><button class="modal-ok">확인</button></div></div>`
+    document.body.appendChild(overlay)
+    const input = overlay.querySelector('input')
+    input.focus()
+    input.select()
+    overlay.querySelector('.modal-ok').onclick = () => { overlay.remove(); resolve(input.value) }
+    overlay.querySelector('.modal-cancel').onclick = () => { overlay.remove(); resolve(null) }
+    input.addEventListener('keydown', e => {
+      if (e.key === 'Enter') { overlay.remove(); resolve(input.value) }
+      if (e.key === 'Escape') { overlay.remove(); resolve(null) }
+    })
+  })
+}
+
 // --- data structures ---
 let pages = {"환영합니다": "= 환영합니다 =\n\n담비위키에 오신 것을 환영합니다.\n\n== 사용법 ==\n* 왼쪽에서 문서를 선택하거나 새 문서를 만드세요.\n* 문서를 편집하고 저장하세요.\n\n== 다국어 지원 ==\n언어 선택 메뉴에서 한국어, 영어, 일본어, 중국어를 선택할 수 있습니다.\n\n== 미디어 문법 ==\n* 이미지: [파일:파일명.png]\n* 오디오: [오디오:파일명.mp3]\n* 동영상: [비디오:파일명.mp4]"}
 let pagesMeta = {}
@@ -302,7 +342,7 @@ export function findBacklinks(title){
  * Load page with optional language. If translation exists use it, else show original with banner.
  */
 export function appLoadPage(title, lang='ko'){
-  if(!pages[title]) return alert('문서를 찾을 수 없습니다.')
+  if(!pages[title]){ showAlert('문서를 찾을 수 없습니다.'); return }
   currentPage = title
   currentLang = lang
   pageTitleEl.textContent = title
@@ -356,11 +396,12 @@ export function startTranslation(title, lang){
   editStartUpdatedAt = pagesMeta[title] ? pagesMeta[title].updatedAt : null
 }
 
-export function editPage(){
+export async function editPage(){
   const meta = pagesMeta[currentPage] || {}
   if(meta.owner){
     if(!user || (user.email !== meta.owner && user.email !== adminEmail)){
-      return alert('수정 권한이 없습니다.')
+      await showAlert('수정 권한이 없습니다.')
+      return
     }
   }
   editArea.style.display='block'
@@ -390,14 +431,14 @@ export function cancelEdit(){
 export async function savePage(){
   const newTitle = editTitle.value.trim()
   const content = editContent.value
-  if(!newTitle) return alert('제목을 입력하세요')
-  
+  if(!newTitle){ await showAlert('제목을 입력하세요'); return }
+
   // detect conflict
   const meta = pagesMeta[currentPage]
   if(meta && editStartUpdatedAt && meta.updatedAt && meta.updatedAt !== editStartUpdatedAt){
-    const ok = confirm('문서가 다른 곳에서 변경되었습니다. 현재 편집 내용으로 덮어쓰시겠습니까? 취소하면 내용 비교 화면이 나옵니다.')
+    const ok = await showConfirm('문서가 다른 곳에서 변경되었습니다. 현재 편집 내용으로 덮어쓰시겠습니까? 취소하면 내용 비교 화면이 나옵니다.')
     if(!ok){
-      alert('서버(로컬Storage) 버전과 편집 중인 버전을 비교하여 수동으로 병합하세요.')
+      await showAlert('서버(로컬Storage) 버전과 편집 중인 버전을 비교하여 수동으로 병합하세요.')
       return
     }
   }
@@ -453,10 +494,10 @@ export function openHistory(){
   pageContentEl.innerHTML = html
 }
 
-export function restoreVersion(encodedTitle, index){
+export async function restoreVersion(encodedTitle, index){
   const title = decodeURIComponent(encodedTitle)
   const history = pagesHistory[title]||[]
-  if(!history[index]) return alert('버전을 찾을 수 없습니다')
+  if(!history[index]){ await showAlert('버전을 찾을 수 없습니다'); return }
   pages[title] = history[index].content
   const now = Date.now()
   if(!pagesMeta[title]) pagesMeta[title] = { owner: (user&&user.email)||null, createdAt: now, updatedAt: now }
@@ -466,8 +507,8 @@ export function restoreVersion(encodedTitle, index){
   showToast('복원되었습니다.')
 }
 
-export function newPage(){
-  const title=prompt('새 문서 제목을 입력하세요:')
+export async function newPage(){
+  const title = await showPrompt('새 문서 제목을 입력하세요:')
   if(title && !pages[title]){
     pages[title]='= '+title+' =\n\n내용을 입력하세요.'
     const now=Date.now()
@@ -504,9 +545,9 @@ export function loadComments(page){
   })
 }
 
-export function postComment(){
+export async function postComment(){
   const text=commentInput.value.trim()
-  if(!text) return alert('댓글 내용을 입력하세요')
+  if(!text){ await showAlert('댓글 내용을 입력하세요'); return }
   const all = JSON.parse(localStorage.getItem('dambi_wiki_comments')||'{}')
   all[currentPage]=all[currentPage]||[]
   all[currentPage].push({author:(user&&user.email)||'익명', text, timestamp: Date.now()})
@@ -518,12 +559,13 @@ export function postComment(){
 
 export async function uploadFile(){
   const f = document.getElementById('fileInput').files[0]
-  if(!f) return alert('파일을 선택하세요')
+  if(!f){ await showAlert('파일을 선택하세요'); return }
   const allowed = ['mp3','mp4','avi','png','jpeg','jpg']
   const ext = f.name.split('.').pop().toLowerCase()
-  if(!allowed.includes(ext)) return alert('허용된 파일 형식: .mp3, .mp4, .avi, .png, .jpeg')
+  if(!allowed.includes(ext)){ await showAlert('허용된 파일 형식: .mp3, .mp4, .avi, .png, .jpeg'); return }
   if(f.size > 10 * 1024 * 1024) {
-    if(!confirm('파일 크기가 10MB를 초과합니다 ('+Math.round(f.size/1024/1024)+'MB). 계속하시겠습니까?\n\n※ 브라우저 저장 용량을 많이 사용합니다.')) return
+    const ok = await showConfirm('파일 크기가 10MB를 초과합니다 ('+Math.round(f.size/1024/1024)+'MB). 계속하시겠습니까?\n\n※ 브라우저 저장 용량을 많이 사용합니다.')
+    if(!ok) return
   }
   document.getElementById('uploadStatus').textContent='업로드 중...'
   const reader = new FileReader()
@@ -560,21 +602,21 @@ export async function uploadFile(){
   reader.readAsDataURL(f)
 }
 
-export function deletePage(){
+export async function deletePage(){
   const title = currentPage
   const meta = pagesMeta[title] || {}
   if(meta.owner){
     if(!user || (user.email !== meta.owner && user.email !== adminEmail)){
-      return alert('삭제 권한이 없습니다.')
+      await showAlert('삭제 권한이 없습니다.')
+      return
     }
   }
   const backlinks = findBacklinks(title)
   if(backlinks.length>0){
-    if(!confirm('다음 문서들이 "'+title+'"을(를) 링크하고 있습니다:\n- '+backlinks.join('\n- ')+'\n\n계속 삭제하시겠습니까?')){
-      return
-    }
+    const ok = await showConfirm('다음 문서들이 "'+title+'"을(를) 링크하고 있습니다:\n- '+backlinks.join('\n- ')+'\n\n계속 삭제하시겠습니까?')
+    if(!ok) return
   }
-  const reason = prompt('삭제 이유를 입력하세요 (선택):') || ''
+  const reason = await showPrompt('삭제 이유를 입력하세요 (선택):') || ''
   const allComments = JSON.parse(localStorage.getItem('dambi_wiki_comments')||'{}')
   const commentsForPage = allComments[title]||[]
   trash[title] = { content: pages[title], meta: pagesMeta[title]||null, comments: commentsForPage, deletedBy: (user&&user.email)||'익명', deletedAt: Date.now(), reason: reason, backlinks: backlinks }
@@ -615,9 +657,9 @@ export function openTrash(){
   renderPageList()
 }
 
-export function restorePage(encodedTitle){
+export async function restorePage(encodedTitle){
   const title = decodeURIComponent(encodedTitle)
-  if(!trash[title]) return alert('항목을 찾을 수 없습니다')
+  if(!trash[title]){ await showAlert('항목을 찾을 수 없습니다'); return }
   pages[title] = trash[title].content
   pagesMeta[title] = trash[title].meta||{owner: null, createdAt: Date.now(), updatedAt: Date.now()}
   // restore comments
@@ -632,18 +674,19 @@ export function restorePage(encodedTitle){
   showToast('복원되었습니다.')
 }
 
-export function permanentlyDeletePage(encodedTitle){
+export async function permanentlyDeletePage(encodedTitle){
   const title = decodeURIComponent(encodedTitle)
-  if(!trash[title]) return alert('항목을 찾을 수 없습니다')
-  if(!confirm('"'+title+'"을(를) 완전히 삭제하시겠습니까?')) return
+  if(!trash[title]){ await showAlert('항목을 찾을 수 없습니다'); return }
+  const ok = await showConfirm('"'+title+'"을(를) 완전히 삭제하시겠습니까?')
+  if(!ok) return
   delete trash[title]
   updateTrashButton()
   saveAllToLocal()
   showToast('영구 삭제되었습니다.')
 }
 
-export function openAdmin(){
-  if(!user || user.email !== adminEmail) return alert('관리자 전용 기능입니다.')
+export async function openAdmin(){
+  if(!user || user.email !== adminEmail){ await showAlert('관리자 전용 기능입니다.'); return }
   pageTitleEl.textContent = '관리자 콘솔'
   let html = '<div style="background:#fff;padding:16px;border-radius:8px;max-width:900px">'
 
@@ -717,9 +760,10 @@ export function openAdmin(){
   pageContentEl.innerHTML = html
 }
 
-export function adminDeletePage(encodedTitle){
+export async function adminDeletePage(encodedTitle){
   const title = decodeURIComponent(encodedTitle)
-  if(!confirm('"'+title+'" 문서를 완전히 삭제하시겠습니까?')) return
+  const ok = await showConfirm('"'+title+'" 문서를 완전히 삭제하시겠습니까?')
+  if(!ok) return
   delete pages[title]
   delete pagesMeta[title]
   delete pagesHistory[title]
@@ -728,9 +772,10 @@ export function adminDeletePage(encodedTitle){
   openAdmin()
 }
 
-export function adminDeleteFile(encodedName){
+export async function adminDeleteFile(encodedName){
   const name = decodeURIComponent(encodedName)
-  if(!confirm('"'+name+'" 파일을 삭제하시겠습니까?\n\n파일 문서(파일:'+name+')도 함께 삭제됩니다.')) return
+  const ok = await showConfirm('"'+name+'" 파일을 삭제하시겠습니까?\n\n파일 문서(파일:'+name+')도 함께 삭제됩니다.')
+  if(!ok) return
   delete files[name]
   localStorage.removeItem('dambi_file_data_'+name)
   const pageTitle = '파일:'+name
@@ -741,9 +786,10 @@ export function adminDeleteFile(encodedName){
   openAdmin()
 }
 
-export function adminDeleteUser(encodedEmail){
+export async function adminDeleteUser(encodedEmail){
   const email = decodeURIComponent(encodedEmail)
-  if(!confirm(email+' 사용자를 삭제하시겠습니까?')) return
+  const ok = await showConfirm(email+' 사용자를 삭제하시겠습니까?')
+  if(!ok) return
   users = users.filter(u=>u.email !== email)
   saveAllToLocal()
   openAdmin()
@@ -752,23 +798,27 @@ export function adminDeleteUser(encodedEmail){
 
 // Auth handlers
 function setupAuthHandlers(){
-  if(loginBtn) loginBtn.addEventListener('click', ()=>{
-    const email=prompt('이메일:')
-    const pw=prompt('비밀번호:')
-    if(!email||!pw) return
+  const lb = document.getElementById('loginBtn')
+  const sb = document.getElementById('signupBtn')
+  if(lb) lb.addEventListener('click', async ()=>{
+    const email = await showPrompt('이메일:')
+    if(!email) return
+    const pw = await showPrompt('비밀번호:')
+    if(!pw) return
     const found = users.find(u=>u.email===email)
-    if(!found){ return alert('사용자를 찾을 수 없습니다.') }
-    if(found.password !== pw){ return alert('비밀번호가 일치하지 않습니다.') }
+    if(!found){ await showAlert('사용자를 찾을 수 없습니다.'); return }
+    if(found.password !== pw){ await showAlert('비밀번호가 일치하지 않습니다.'); return }
     user=found
     localStorage.setItem('dambi_wiki_user', JSON.stringify(user))
     renderAuth()
     showToast('로그인되었습니다.')
   })
-  
-  if(signupBtn) signupBtn.addEventListener('click', ()=>{
-    const email=prompt('회원가입 이메일:')
-    const pw=prompt('비밀번호:')
-    if(!email||!pw) return
+
+  if(sb) sb.addEventListener('click', async ()=>{
+    const email = await showPrompt('회원가입 이메일:')
+    if(!email) return
+    const pw = await showPrompt('비밀번호:')
+    if(!pw) return
     if(!users.find(u=>u.email===email)) users.push({email, password: pw})
     saveAllToLocal()
     showToast('회원가입되었습니다. 로그인해주세요.')
@@ -845,21 +895,19 @@ export function renderTOC(){
 // URL 라우팅 처리
 export function routeFromUrl(){
   const pathname = window.location.pathname
-  // /로 시작하는 경로만 처리
   if(!pathname || pathname === '/' || pathname === '') {
     appLoadPage(currentPage, 'ko')
     return
   }
-  
+
   const parts = pathname.split('/').filter(Boolean)
-  
+
   // 경로 형식: /문서제목/언어코드
   if(parts.length >= 2){
     const lang = parts[parts.length - 1]
     const titleEncoded = parts[parts.length - 2]
     const title = decodeURIComponent(titleEncoded)
-    
-    // 유효한 언어 코드 확인
+
     const validLangs = ['ko', 'en', 'ja', 'zh']
     if(validLangs.includes(lang) && pages[title]){
       currentLang = lang
@@ -867,7 +915,7 @@ export function routeFromUrl(){
       return
     }
   }
-  
+
   // 경로 형식: /문서제목 (기본 언어는 ko)
   if(parts.length >= 1){
     const titleEncoded = parts[parts.length - 1]
@@ -877,8 +925,7 @@ export function routeFromUrl(){
       return
     }
   }
-  
-  // 경로를 찾을 수 없으면 기본 페이지 로드
+
   appLoadPage(currentPage, 'ko')
 }
 
