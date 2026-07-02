@@ -78,6 +78,12 @@ const toastEl = document.getElementById('toast')
 const langSelect = document.getElementById('langSelect')
 const tocContainer = document.getElementById('tocContainer')
 const autosaveStatus = document.getElementById('autosaveStatus')
+const transArea = document.getElementById('transArea')
+const transLangSelect = document.getElementById('transLangSelect')
+const transOriginal = document.getElementById('transOriginal')
+const transContent = document.getElementById('transContent')
+const transTargetLabel = document.getElementById('transTargetLabel')
+const transTitleBadge = document.getElementById('transTitleBadge')
 
 let adminEmail = localStorage.getItem('dambi_wiki_admin') || null
 
@@ -418,11 +424,58 @@ export async function editPage(){
 
 export function cancelEdit(){
   editArea.style.display='none'
+  transArea.style.display='none'
   editBtn.style.display='inline-block'
+  document.getElementById('translateBtn').style.display='inline-block'
   saveBtn.style.display='none'
   cancelBtn.style.display='none'
   stopAutosave()
   autosaveStatus.textContent = '-'
+}
+
+const LANG_NAMES = { en: 'English', ja: '日本語', zh: '中文' }
+
+export function openTranslationEditor(initLang) {
+  const lang = initLang || transLangSelect.value || 'en'
+  transLangSelect.value = lang
+  transOriginal.textContent = pages[currentPage] || ''
+  const existing = (pagesTranslations[currentPage] || {})[lang] || ''
+  transContent.value = existing
+  transTitleBadge.textContent = '「' + currentPage + '」 → ' + (LANG_NAMES[lang] || lang)
+  transTargetLabel.textContent = '번역문 (' + (LANG_NAMES[lang] || lang) + ')'
+  transArea.style.display = 'block'
+  editArea.style.display = 'none'
+  editBtn.style.display = 'none'
+  document.getElementById('translateBtn').style.display = 'none'
+  saveBtn.style.display = 'none'
+  cancelBtn.style.display = 'none'
+  transContent.focus()
+
+  transLangSelect.onchange = () => {
+    const newLang = transLangSelect.value
+    const existingForNew = (pagesTranslations[currentPage] || {})[newLang] || ''
+    transContent.value = existingForNew
+    transTitleBadge.textContent = '「' + currentPage + '」 → ' + (LANG_NAMES[newLang] || newLang)
+    transTargetLabel.textContent = '번역문 (' + (LANG_NAMES[newLang] || newLang) + ')'
+  }
+}
+
+export async function saveTranslation() {
+  const lang = transLangSelect.value
+  const content = transContent.value.trim()
+  if (!content) { await showAlert('번역 내용을 입력하세요.'); return }
+  pagesTranslations[currentPage] = pagesTranslations[currentPage] || {}
+  pagesTranslations[currentPage][lang] = content
+  saveAllToLocal()
+  cancelTranslation()
+  appLoadPage(currentPage, lang)
+  showToast('번역이 저장되었습니다. (' + (LANG_NAMES[lang] || lang) + ')')
+}
+
+export function cancelTranslation() {
+  transArea.style.display = 'none'
+  editBtn.style.display = 'inline-block'
+  document.getElementById('translateBtn').style.display = 'inline-block'
 }
 
 /**
@@ -973,3 +1026,6 @@ window.deletePage = deletePage
 window.postComment = postComment
 window.uploadFile = uploadFile
 window.openAdmin = openAdmin
+window.openTranslationEditor = openTranslationEditor
+window.saveTranslation = saveTranslation
+window.cancelTranslation = cancelTranslation

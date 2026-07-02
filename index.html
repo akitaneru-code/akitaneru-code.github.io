@@ -54,6 +54,16 @@
   /* responsive */
   @media(max-width:900px){aside{display:none} .wrap{height:auto} header{flex-wrap:wrap}}
 
+  /* translation editor */
+  .trans-area{margin-top:12px;display:none}
+  .trans-banner{background:#eff6ff;border:1px solid #bfdbfe;border-radius:8px;padding:10px 14px;margin-bottom:10px;display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+  .trans-banner select{padding:6px 8px;border-radius:6px;border:1px solid #bfdbfe;background:#fff;font-size:0.9rem}
+  .trans-split{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+  .trans-split label{font-size:0.82rem;font-weight:600;color:#64748b;display:block;margin-bottom:4px}
+  .trans-split textarea{min-height:320px}
+  .trans-original{background:#f8fafc;border:1px solid #e2e8f0;border-radius:6px;padding:12px;font-size:0.9rem;line-height:1.6;overflow:auto;max-height:400px;white-space:pre-wrap;font-family:monospace;color:#374151}
+  @media(max-width:900px){.trans-split{grid-template-columns:1fr}}
+
   /* custom modal */
   .modal-overlay{position:fixed;inset:0;background:rgba(0,0,0,0.45);z-index:9000;display:flex;align-items:center;justify-content:center}
   .modal-box{background:#fff;border-radius:10px;padding:24px 28px;min-width:300px;max-width:480px;width:90%;box-shadow:0 8px 32px rgba(0,0,0,0.18)}
@@ -95,6 +105,7 @@
           <option value="zh">中文</option>
         </select>
         <button class="btn" id="editBtn" onclick="editPage()">편집</button>
+        <button class="btn" id="translateBtn" onclick="openTranslationEditor()" style="background:#0891b2">번역</button>
         <button class="btn" id="historyBtn" onclick="openHistory()">히스토리</button>
         <button class="btn" id="saveBtn" onclick="savePage()" style="display:none">저장</button>
         <button class="btn" id="cancelBtn" onclick="cancelEdit()" style="display:none;background:#9aa5b8">취소</button>
@@ -114,6 +125,33 @@
         <div id="uploadStatus" style="font-size:0.9rem;color:#64748b"></div>
       </div>
       <div style="margin-top:6px;font-size:0.9rem;color:#64748b">자동저장 상태: <span id="autosaveStatus">-</span></div>
+    </div>
+
+    <div class="trans-area" id="transArea">
+      <div class="trans-banner">
+        <span style="font-weight:600;color:#1e40af">🌐 번역 편집</span>
+        <span id="transTitleBadge" style="color:#1e40af;font-size:0.9rem"></span>
+        <span style="color:#64748b;font-size:0.85rem">번역할 언어:</span>
+        <select id="transLangSelect">
+          <option value="en">English</option>
+          <option value="ja">日本語</option>
+          <option value="zh">中文</option>
+        </select>
+        <div style="margin-left:auto;display:flex;gap:8px">
+          <button class="btn" id="transSaveBtn" onclick="saveTranslation()" style="background:#0891b2">번역 저장</button>
+          <button class="btn" id="transCancelBtn" onclick="cancelTranslation()" style="background:#9aa5b8">취소</button>
+        </div>
+      </div>
+      <div class="trans-split">
+        <div>
+          <label>원문 (한국어)</label>
+          <div class="trans-original" id="transOriginal"></div>
+        </div>
+        <div>
+          <label id="transTargetLabel">번역문</label>
+          <textarea id="transContent" placeholder="여기에 번역 내용을 입력하세요..."></textarea>
+        </div>
+      </div>
     </div>
 
     <section class="comments" id="commentsSection">
