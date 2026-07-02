@@ -1,7 +1,7 @@
 // src/app.js
 // Main application script extracted from index.html for easier documentation and CI.
 
-import DOMPurify from 'https://cdn.jsdelivr.net/npm/dompurify@2.4.0/dist/purify.es.js'
+const DOMPurify = window.DOMPurify
 
 // --- data structures ---
 let pages = {"환영합니다": "= 환영합니다 =\n\n담비위키에 오신 것을 환영합니다.\n\n== 사용법 ==\n* 왼쪽에서 문서를 선택하거나 새 문서를 만드세요.\n* 문서를 편집하고 저장하세요.\n\n== 다국어 지원 ==\n언어 선택 메뉴에서 한국어, 영어, 일본어, 중국어를 선택할 수 있습니다."}
