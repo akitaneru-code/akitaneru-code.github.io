@@ -1,1 +1,427 @@
+/* ========================================
+   2000년대 딥웹 스타일 CSS
+   2000s Retro Deepweb Aesthetic
+   ======================================== */
 
+:root {
+  --bg: #000;
+  --panel: #1a1a1a;
+  --text: #00ff00;
+  --text-muted: #008000;
+  --accent: #00ff00;
+  --border: #00ff00;
+  --sidebar-width: 260px;
+  --max-width: 1100px;
+  font-family: "Courier New", Courier, monospace;
+}
+
+/* Reset */
+* {
+  box-sizing: border-box;
+}
+
+html, body {
+  height: 100%;
+  margin: 0;
+  background: var(--bg);
+  color: var(--text);
+  font-family: var(--font-family, "Courier New", Courier, monospace);
+  overflow-x: hidden;
+}
+
+/* Scrollbar - 레트로 스타일 */
+::-webkit-scrollbar {
+  width: 12px;
+  background: var(--bg);
+}
+
+::-webkit-scrollbar-track {
+  background: #0a0a0a;
+  border: 1px solid var(--border);
+}
+
+::-webkit-scrollbar-thumb {
+  background: var(--accent);
+  border: 1px solid var(--text-muted);
+}
+
+/* ====== TOPBAR ====== */
+.topbar {
+  background: linear-gradient(180deg, #1a1a1a, #0a0a0a);
+  border-bottom: 2px solid var(--accent);
+  box-shadow: 0 0 20px rgba(0, 255, 0, 0.3);
+}
+
+.topbar-inner {
+  max-width: var(--max-width);
+  margin: 0 auto;
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  padding: 14px;
+}
+
+.logo {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.logo .mark {
+  width: 44px;
+  height: 44px;
+  border: 2px solid var(--accent);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--accent);
+  font-weight: 700;
+  font-size: 20px;
+  background: #0a0a0a;
+  box-shadow: 0 0 10px rgba(0, 255, 0, 0.5);
+  letter-spacing: 2px;
+}
+
+.sitename {
+  font-weight: 700;
+  font-size: 18px;
+  color: var(--accent);
+  text-transform: uppercase;
+  letter-spacing: 2px;
+  text-shadow: 0 0 10px rgba(0, 255, 0, 0.5);
+}
+
+.subtitle {
+  font-size: 13px;
+  color: var(--text-muted);
+  font-style: italic;
+}
+
+/* ====== SEARCH ====== */
+.top-search {
+  margin-left: auto;
+}
+
+.searchbox {
+  display: flex;
+  align-items: center;
+  background: #0a0a0a;
+  border: 2px solid var(--accent);
+  padding: 6px 8px;
+  box-shadow: 0 0 15px rgba(0, 255, 0, 0.3);
+}
+
+.searchbox input {
+  border: none;
+  outline: none;
+  font-size: 14px;
+  width: 300px;
+  background: transparent;
+  color: var(--accent);
+  font-family: inherit;
+  text-shadow: 0 0 5px rgba(0, 255, 0, 0.3);
+}
+
+.searchbox input::placeholder {
+  color: var(--text-muted);
+}
+
+.searchbox button {
+  background: transparent;
+  border: 1px solid var(--accent);
+  color: var(--accent);
+  padding: 8px 12px;
+  cursor: pointer;
+  margin-left: 8px;
+  font-family: inherit;
+  text-transform: uppercase;
+  font-size: 12px;
+  font-weight: bold;
+  box-shadow: 0 0 10px rgba(0, 255, 0, 0.4);
+  transition: all 0.2s;
+}
+
+.searchbox button:hover {
+  background: rgba(0, 255, 0, 0.1);
+  box-shadow: 0 0 20px rgba(0, 255, 0, 0.6);
+}
+
+/* ====== LAYOUT ====== */
+.container {
+  max-width: var(--max-width);
+  margin: 24px auto;
+  display: flex;
+  gap: 20px;
+  padding: 0 12px;
+}
+
+.sidebar {
+  width: var(--sidebar-width);
+  background: var(--panel);
+  border: 2px solid var(--accent);
+  padding: 16px;
+  height: calc(100vh - 160px);
+  overflow: auto;
+  box-shadow: 0 0 15px rgba(0, 255, 0, 0.2);
+}
+
+.main {
+  flex: 1;
+  min-height: 600px;
+}
+
+/* ====== SIDEBAR ====== */
+.nav-section {
+  margin-bottom: 18px;
+  border-bottom: 1px dashed var(--text-muted);
+  padding-bottom: 12px;
+}
+
+.nav-section h3 {
+  font-size: 13px;
+  margin: 0 0 8px;
+  color: var(--accent);
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  text-shadow: 0 0 5px rgba(0, 255, 0, 0.5);
+}
+
+.nav-section ul {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+}
+
+.nav-section li {
+  padding: 6px 8px;
+  color: var(--text);
+  cursor: pointer;
+  transition: all 0.2s;
+  border-left: 2px solid transparent;
+  margin: 2px 0;
+  font-size: 12px;
+}
+
+.nav-section li:hover {
+  background: rgba(0, 255, 0, 0.1);
+  border-left: 2px solid var(--accent);
+  text-shadow: 0 0 10px rgba(0, 255, 0, 0.6);
+}
+
+/* ====== PANEL ====== */
+.panel {
+  background: var(--panel);
+  border: 2px solid var(--accent);
+  padding: 18px;
+  box-shadow: 0 0 20px rgba(0, 255, 0, 0.15);
+}
+
+/* ====== HEADINGS ====== */
+h1, h2, h3, h4, h5, h6 {
+  color: var(--accent);
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  text-shadow: 0 0 10px rgba(0, 255, 0, 0.4);
+}
+
+h2 {
+  font-size: 24px;
+  margin: 12px 0;
+  border-bottom: 1px solid var(--text-muted);
+  padding-bottom: 8px;
+}
+
+h3 {
+  font-size: 16px;
+  margin: 12px 0 8px;
+}
+
+/* ====== ENTRY LIST ====== */
+.entry-list {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+  gap: 12px;
+  margin: 12px 0;
+}
+
+.entry-card {
+  padding: 12px;
+  border: 1px solid var(--border);
+  background: #0a0a0a;
+  cursor: pointer;
+  transition: all 0.2s;
+  box-shadow: 0 0 10px rgba(0, 255, 0, 0.1);
+}
+
+.entry-card:hover {
+  border: 2px solid var(--accent);
+  background: rgba(0, 255, 0, 0.05);
+  box-shadow: 0 0 20px rgba(0, 255, 0, 0.4);
+}
+
+.entry-card h4 {
+  margin: 0;
+  font-size: 18px;
+  color: var(--accent);
+  text-shadow: 0 0 5px rgba(0, 255, 0, 0.4);
+}
+
+.entry-card p {
+  margin: 6px 0 0;
+  color: var(--text);
+  font-size: 13px;
+}
+
+/* ====== ENTRY VIEW ====== */
+.entry-header {
+  display: flex;
+  align-items: center;
+  gap: 18px;
+  border: 1px dashed var(--border);
+  padding: 12px;
+  background: rgba(0, 255, 0, 0.05);
+}
+
+.hanzi {
+  font-family: serif;
+  font-size: 48px;
+  color: var(--accent);
+  text-shadow: 0 0 10px rgba(0, 255, 0, 0.6);
+  font-weight: bold;
+}
+
+.readings {
+  display: flex;
+  flex-direction: column;
+}
+
+.reading-line {
+  color: var(--text-muted);
+  font-size: 14px;
+  margin: 2px 0;
+}
+
+.definition {
+  margin-top: 12px;
+}
+
+.definition ul {
+  list-style: none;
+  padding: 0;
+  margin: 8px 0;
+}
+
+.definition ul li {
+  padding: 4px 0 4px 20px;
+  border-left: 2px solid var(--text-muted);
+  margin: 4px 0;
+  font-size: 14px;
+  color: var(--text);
+}
+
+.definition ul li:before {
+  content: "► ";
+  color: var(--accent);
+  margin-right: 8px;
+}
+
+/* ====== FOOTER ====== */
+.footer {
+  max-width: var(--max-width);
+  margin: 20px auto;
+  color: var(--text-muted);
+  font-size: 13px;
+  text-align: center;
+  border-top: 1px dashed var(--border);
+  padding-top: 12px;
+  font-style: italic;
+}
+
+/* ====== TEXT STYLES ====== */
+p {
+  line-height: 1.6;
+  color: var(--text);
+}
+
+a {
+  color: var(--accent);
+  text-decoration: underline;
+  cursor: pointer;
+}
+
+a:hover {
+  text-shadow: 0 0 10px rgba(0, 255, 0, 0.6);
+}
+
+small {
+  color: var(--text-muted);
+}
+
+/* ====== RESPONSIVE ====== */
+@media (max-width: 900px) {
+  .container {
+    flex-direction: column;
+  }
+
+  .sidebar {
+    width: 100%;
+    height: auto;
+  }
+
+  .searchbox input {
+    width: 160px;
+  }
+
+  .topbar-inner {
+    flex-wrap: wrap;
+  }
+
+  .top-search {
+    margin-left: 0;
+    flex: 1 1 100%;
+    margin-top: 8px;
+  }
+
+  .searchbox {
+    width: 100%;
+  }
+
+  .searchbox input {
+    flex: 1;
+  }
+}
+
+/* ====== ANIMATIONS ====== */
+@keyframes glow {
+  0%, 100% {
+    text-shadow: 0 0 5px rgba(0, 255, 0, 0.3);
+  }
+  50% {
+    text-shadow: 0 0 15px rgba(0, 255, 0, 0.6);
+  }
+}
+
+.sitename {
+  animation: glow 3s ease-in-out infinite;
+}
+
+/* ====== 추가 스타일 ====== */
+hr {
+  border: none;
+  border-top: 1px dashed var(--border);
+  margin: 12px 0;
+}
+
+input, textarea {
+  background: #0a0a0a;
+  color: var(--accent);
+  border: 1px solid var(--border);
+  padding: 6px 8px;
+  font-family: inherit;
+}
+
+input:focus, textarea:focus {
+  outline: none;
+  box-shadow: 0 0 15px rgba(0, 255, 0, 0.4);
+  border: 2px solid var(--accent);
+}
