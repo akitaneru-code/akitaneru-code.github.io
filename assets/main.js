@@ -10,6 +10,32 @@ const STORAGE_KEYS = {
 };
 
 const ALLOWED_USER = 'akitaneru-code';
+const username = getUsername();
+  const avatar = getAvatar();
+  const userDoc = localStorage.getItem(STORAGE_KEYS.userDoc) || '(아직 작성된 사용자 문서가 없습니다)';
+
+  // 기여내역 예시 (실제로는 페이지 목록이나 편집 기록을 저장하면 됨)
+  const contributions = [
+    { title: '샘플 문서', path: '/pages/sample/', date: '2026-10-30' },
+    { title: '홈', path: '/', date: '2026-10-29' }
+  ];
+
+  document.getElementById('mypage-content').innerHTML = `
+    <div class="mypage-card">
+      <h2>프로필</h2>
+      <div class="avatar-upload">
+        <img src="${avatar || 'data:image/svg+xml,%3Csvg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"%3E%3Ccircle cx="50" cy="50" r="50" fill="%23ddd"/%3E%3Ccircle cx="50" cy="40" r="18" fill="%23999"/%3E%3Cpath d="M20 80 Q50 60 80 80" fill="%23999"/%3E%3C/svg%3E'}" 
+             alt="프로필" class="avatar-preview" id="avatar-preview">
+        <div>
+          <p style="margin-bottom:0.5rem;"><strong>${username}</strong></p>
+          <input type="file" id="avatar-input" accept="image/*" style="display:none;">
+          <button class="login-btn" id="upload-avatar-btn" style="background:#0366d6;">프로필 사진 업로드</button>
+          <p style="font-size:0.8rem;color:#888;margin-top:0.4rem;">기기에서 사진을 선택해서 업로드하세요.</p>
+        </div>
+      </div>
+      <button id="logout-btn" style="background:#d73a49;color:#fff;border:none;padding:0.4rem 0.8rem;border-radius:6px;cursor:pointer;font-size:0.85rem;">로그아웃</button>
+    </div>
+
 
 // 유틸
 function getLoggedIn() {
