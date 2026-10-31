@@ -1,0 +1,13 @@
+title: My Personal Wiki
+description: Simple personal wiki powered by Jekyll
+baseurl: ""
+url: ""
+
+# Minimal settings - no plugins needed
+markdown: kramdown  # but we won't use markdown for content
+permalink: pretty
+
+exclude:
+  - README.md
+  - Gemfile
+  - Gemfile.lock
